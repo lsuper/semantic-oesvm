@@ -20,15 +20,23 @@ dboesvm = db_connection['oesvm']
 dbsoesvm = db_connection['soesvm']
 #set up train set and test set
 def consTrainSetAndTestSet(category, trainSetPercent, testSetSize, isSynset):
+  """
   if isSynset:
     freqTable = dbRepo.synsetFrequency
     dbSvm = dbsoesvm
   else:
     freqTable = dbRepo.frequency
     dbSvm = dboesvm
+  """
+  freqTable = dbRepo.frequency
+  dbSvm = dboesvm
   testSet = list(freqTable.find({'category': category}))
   #old newCtgry is train + true_test, now is whole catgory set
   dbSvm.newCtgry.insert(testSet)
+  for entry in testSet:
+    api = dbRepo.synsetFrequency.find({'api_id':entry['api_id']})[0]
+    dbsoesvm.newCtgry.insert(api)
+    
   trainSetSize = int(trainSetPercent * len(testSet))
   trainSet = []
   for i in range(trainSetSize):
@@ -52,6 +60,17 @@ def consTrainSetAndTestSet(category, trainSetPercent, testSetSize, isSynset):
   dbSvm.test.insert(testSet)
   dbSvm.trainandtest.insert(trainSet)
   dbSvm.trainandtest.insert(testSet)
+  freqTable = dbRepo.synsetFrequency
+  dbSvm = dbsoesvm
+  for entry in trainSet:
+    api = freqTable.find({'api_id':entry['api_id']})[0]
+    dbSvm.train.insert(api)
+    dbSvm.trainandtest.insert(api)
+  for entry in testSet:
+    api = freqTable.find({'api_id':entry['api_id']})[0]
+    dbSvm.test.insert(api)
+    dbSvm.trainandtest.insert(api)
+  
 
 #this method cacultes kfirf for training category based on the whole category words(in newCtgry).
 def kfirf(alpha, isSynset):
@@ -69,13 +88,13 @@ def kfirf(alpha, isSynset):
     for word in cnt:
       ctgryWithWord = 0
       totalCount = 0
-      #print word
+      print word
       for i in table.find({'wordlist.' + word :{'$exists':True}}):
         ctgryWithWord += 1
         totalCount += i['wordlist'][word]
-      #print cnt[word],'/', maxFreq, '*( alpha * (1 -', ctgryWithWord, '/', ctgryCount, ') + (1 - alpha) * ', cnt[word], '/', totalCount, ')'
+      print cnt[word],'/', maxFreq, '*( alpha * (1 -', ctgryWithWord, '/', ctgryCount, ') + (1 - alpha) * ', cnt[word], '/', totalCount, ')'
       kfirfEntry['wordlist'][word] = cnt[word]/maxFreq * (alpha * (1 - ctgryWithWord/ctgryCount) + (1 - alpha) * cnt[word]/totalCount)
-      print word, kfirfEntry['wordlist'][word]  
+      #print word, kfirfEntry['wordlist'][word]  
     dbSvm.kfirf.insert(kfirfEntry)
 
 #this method caculates kf-idfdf for all the key words in train set and test set regarding to a category(param)
@@ -220,15 +239,15 @@ def svmHelper(trainFile, testFile, modelFile, predictTestFile):
 
 #generate basic wordTosynset in PW db
 """
-"""
 wordToSynset()
 #refine wordTosynset in PW db by change word having synset in Category Tree
 #SynsetwithCategry()
 #build new synset frequency table in PW db
 frequencySynset()
+"""
 #construct Train Set and Test Set
 consTrainSetAndTestSet('Travel', 0.8, 7200, True)
-consTrainSetAndTestSet('Travel', 0.8, 7200, False)
+#consTrainSetAndTestSet('Travel', 0.8, 7200, False)
 #generate dbSvm.freqinCtgry for calculate kfirf
 freqByCategory(dboesvm.newCtgry, dboesvm.freqinCtgry)
 freqByCategory(dbsoesvm.newCtgry, dbsoesvm.freqinCtgry)
