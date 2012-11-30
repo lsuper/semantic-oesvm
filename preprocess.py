@@ -73,7 +73,7 @@ def getTreesList(tree, depth = 0):
       l += [[entry.name, depth]]
   return l
 
-#this method is for make all words in repo into synset.
+#this method is for making all words in repo into synset.
 #For each service, this method chooses top 3 synset similar to its category and then generates a synsetKfirfSumMap which contains synsets and its corresponding words' summation of kfirf in this category.
 #this method chooses in order of the summation of word kfirf in each synset
 def wordToSynset():
@@ -151,9 +151,9 @@ def freqByCategory(tablefreq, tablefreqbyCtgry):
       del entry['api_id']
       tablefreqbyCtgry.insert(entry)
 
-#this method cacultes kfirf for all the categories' word in repository
+#this method calcultes kfirf for all the categories' word in repository
 def kfirf(alpha):
-  CtgryCount = db.freqbyCtgry.count()
+  ctgryCount = db.freqbyCtgry.count()
   for entry in db.freqbyCtgry.find():
     kfirfEntry = copy.deepcopy(entry)
     cnt = Counter(entry['wordlist'])
@@ -164,7 +164,7 @@ def kfirf(alpha):
       for i in db.freqbyCtgry.find({'wordlist.' + word : {'$exists':True}}):
         ctgryWithWord += 1
         totalCount += i['wordlist'][word]
-      print cnt[word],'/', maxFreq, '*( alpha * (1 -', ctgryWithWord, '/', db.freqbyCtgry.count(), ') + (1 - alpha) * ', cnt[word], '/', totalCount, ')'
+      print cnt[word],'/', maxFreq, '*( alpha * (1 -', ctgryWithWord, '/', ctgryCount, ') + (1 - alpha) * ', cnt[word], '/', totalCount, ')'
       kfirfEntry['wordlist'][word] = cnt[word]/maxFreq * (alpha * (1 - ctgryWithWord/ctgryCount) + (1 - alpha) * cnt[word]/totalCount)
       print kfirfEntry['wordlist'][word]  
     db.kfirfbyCtgry.insert(kfirfEntry)

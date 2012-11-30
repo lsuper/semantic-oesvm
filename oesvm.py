@@ -134,10 +134,10 @@ def kfidfdf(beta, category, omega, isSynset):
 def generateFilesforSvm(category, svmType, isSynset):
   #todo: add support for isSynset is False. Actually it should work well now. However each time, we should refresh the oesvm kfidf kfirf, kfidfdf every time we change between synset or not synset(word)
   if isSynset:
-    path = './rawdataset/synset/'
+    path = './rawdataset/master/synset/'
     dbSvm = dbsoesvm
   else:
-    path = './rawdataset/word/'
+    path = './rawdataset/master/word/'
     dbSvm = dboesvm
   if svmType == 'svm':
     table = dbSvm.kfidf
@@ -219,6 +219,7 @@ def svmHelper(trainFile, testFile, modelFile, predictTestFile):
 
 #generate basic wordTosynset in PW db
 """
+"""
 wordToSynset()
 #refine wordTosynset in PW db by change word having synset in Category Tree
 #SynsetwithCategry()
@@ -232,12 +233,11 @@ freqByCategory(dboesvm.newCtgry, dboesvm.freqinCtgry)
 freqByCategory(dbsoesvm.newCtgry, dbsoesvm.freqinCtgry)
 #generate dbSvm.synsetFreqbyCtgry for calculate kfirf
 freqByCategory(dbRepo.synsetFrequency, dbRepo.synsetFreqbyCtgry)
-#calculte kfirf for every word in curretn category
+#calculte kfirf for every word in current category
 kfirf(0.4, True)
 kfirf(0.4, False)
 #calculte kfidfdf regarding to "Travel"
 kfidfdf(0.5, "Travel", 100, True)
-"""
 kfidfdf(0.5, "Travel", 100, False)
 #generateFiles for libsvm, oesvm using kfidfdf, svm using kfidf
 generateFilesforSvm('Travel', 'oesvm', True)
@@ -245,7 +245,7 @@ generateFilesforSvm('Travel', 'oesvm', False)
 generateFilesforSvm('Travel', 'svm', True)
 generateFilesforSvm('Travel', 'svm', False)
 cutrow()
-svmHelper('./dataset/word/oesvmtrain', './dataset/word/oesvmtrain', 'modelforoesvm', 'predict_test_file_oesvm')
-svmHelper('./dataset/synset/oesvmtrain', './dataset/synset/oesvmtrain', 'modelforsoesvm', 'predict_test_file_soesvm')
-svmHelper('./dataset/word/svmtrain', './dataset/word/svmtrain', 'modelforsvm', 'predict_test_file_svm')
-svmHelper('./dataset/synset/svmtrain', './dataset/synset/svmtrain', 'modelforsynsetsvm', 'predict_test_file_synsetsvm')
+svmHelper('./dataset/master/word/oesvmtrain', './dataset/master/word/oesvmtrain', './model/master/modelforoesvm', 'predict_test_file_oesvm')
+svmHelper('./dataset/master/synset/oesvmtrain', './dataset/master/synset/oesvmtrain', './model/master/modelforsoesvm', 'predict_test_file_soesvm')
+svmHelper('./dataset/master/word/svmtrain', './dataset/word/master/svmtrain', './model/master/modelforsvm', 'predict_test_file_svm')
+svmHelper('./dataset/master/synset/svmtrain', './dataset/master/synset/svmtrain', './model/master/modelforsynsetsvm', 'predict_test_file_synsetsvm')
