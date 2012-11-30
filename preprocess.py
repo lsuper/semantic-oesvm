@@ -12,7 +12,7 @@ if len(sys.argv) < 2:
   print 'usage: analysis <db_name>'
   sys.exit()
 
-db = db_connection[sys.argv[1]]
+#db = db_connection[sys.argv[1]]
 
 reservedWordList = ['REST', 'WSDL', 'OWL']
 
@@ -73,28 +73,7 @@ def getTreesList(tree, depth = 0):
       l += [[entry.name, depth]]
   return l
 
-#this method is for making all words in repo into synset.
-#For each service, this method chooses top 3 synset similar to its category and then generates a synsetKfirfSumMap which contains synsets and its corresponding words' summation of kfirf in this category.
-#this method chooses in order of the summation of word kfirf in each synset
-def wordToSynset():
-  #todo: should use freqinctgry(only train)
-  for entry in db.freqbyCtgry.find():
-    synsetWordMap = {}
-    for word in entry['wordlist']:
-      for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category'])):
-        if not synsetWordMap.has_key(synset.name):
-          synsetWordMap[synset.name] = set([word])
-        else:
-          synsetWordMap[synset.name].add(word)
-    synsetKfirfSumMap = Counter({k:sum(db.kfirfbyCtgry.find({'category':entry['category']})[0]['wordlist'][word] for word in synsetWordMap[k]) for k in synsetWordMap})
-    for pair in synsetKfirfSumMap.most_common():
-      mostSynset = pair[0]
-      for word in synsetWordMap[mostSynset]:
-        db.wordSynsetMap.insert({'word': word, 'synset': mostSynset, 'category': entry['category'], 'depth': 100})
-      mostSynsetWordSet = synsetWordMap.pop(mostSynset)
-      #the synsetWordMap changed for assignment need, while the synsetKfirfSumMap does not change.
-      for synset in synsetWordMap:
-        synsetWordMap[synset] = synsetWordMap[synset] - mostSynsetWordSet
+      
 
 
 #deprecated, change the word's synset in wordSynsetMap with synset in category tree.
@@ -152,6 +131,7 @@ def freqByCategory(tablefreq, tablefreqbyCtgry):
 
 #this method calcultes kfirf for all the categories' word in repository
 def kfirf(alpha):
+  db = db_connection['devPW']
   ctgryCount = db.freqbyCtgry.count()
   for entry in db.freqbyCtgry.find():
     kfirfEntry = copy.deepcopy(entry)
@@ -169,66 +149,86 @@ def kfirf(alpha):
     db.kfirfbyCtgry.insert(kfirfEntry)
 
 import math
-#this method caculates kf-idfdf for 50 words this category and 50 words not in this category regarding to a category(param)
-def kfidfdf(beta, category, omega):
-  kfidfdfEntry = {}
-  kfidfdfEntry['category'] = category
-  kfidfdfEntry['apilist'] = {}
-  db.kfidfdf.remove({'category': category})
+#this method caculates kf-idfdf for all the key words in the cursor pointing to set regarding to a category(param)
+def kfidfdf(cursor, beta, category, omega, isSynset):
+  allset = list(cursor)
+  freqTable = dbRepo.frequency
+  dbSvm = dboesvm
   # sum all apis
-  apiCount = db.frequency.find().count()
-  for entry in db.frequency.find({'category': category}).limit(50):
+  apiCount = freqTable.find().count()
+  #wordSet is for generate index for words
+  wordSet = set()
+  for entry in allset:
+    for word in entry['wordlist']:
+      wordSet.add(word)
+  wordSet = list(wordSet)
+  rankList = dbSvm.kfirf.find({'category': category})[0]['wordlist']
+  rankList = Counter(rankList)
+  if omega < len(rankList):
+    omega = len(rankList) - 1
+  apiWithWordCount = {}
+  #calculate kfidfdf for all words in given set
+  for entry in allset:
     del entry['_id']
     totalFreq = 0
     for word in entry['wordlist']:
       #sum all keywords in one api frequency
       totalFreq += entry['wordlist'][word]
-    kfidfdfEntryForOneApi = {}
+    kfidfdfEntry = {'api':'','vector':{}}
+    kfidfEntry = {'api':'','vector':{}}
     for word in entry['wordlist']:
-      apiWithWordCount = 0
-      for api in db.frequency.find({}, {'_id': 0,'wordlist.' + word: 1}):
-        if api['wordlist'] != {}:
-          apiWithWordCount += 1
-      raw_kfidf = entry['wordlist'][word]/totalFreq * math.log( apiCount / ( apiWithWordCount + 1 ), 10 )
+      #calculate api with this word count in all the repos
+      if not apiWithWordCount.has_key(word):
+        apiWithWordCount[word] = 0
+        for api in freqTable.find({}, {'_id': 0,'wordlist.' + word: 1}):
+          if api['wordlist'] != {}:
+            apiWithWordCount[word] += 1
+      raw_kfidf = entry['wordlist'][word]/totalFreq * math.log( apiCount / ( apiWithWordCount[word] + 1 ), 10)
+      kfidfEntry['vector'][str(wordSet.index(word)+1)] = [raw_kfidf, word]
       #if (word == 'travel' or word == 'amaze') and (entry['api_id'] == 'http://www.programmableweb.com/api/cleartrip'):
-      print word, entry['api_id'], "raw_kfidf = ", raw_kfidf, "word freq in api = ", entry['wordlist'][word], "totalFreq =", totalFreq, "log(", apiCount, "/(", apiWithWordCount, "+1))"
-      rankList = db.kfirfbyCtgry.find({'category': category})[0]['wordlist']
-      rankList = Counter(rankList)
+      print word, entry['api_id'], "raw_kfidf = ", raw_kfidf, "word freq in api = ", entry['wordlist'][word], "totalFreq =", totalFreq, "log(", apiCount, "/(", apiWithWordCount[word], "+1))"
       if rankList.most_common()[omega][1] >  rankList.get(word, -1):
-        kfidfdfEntryForOneApi[word] = raw_kfidf
+        kfidfdfEntry['vector'][str(wordSet.index(word)+1)] = [raw_kfidf, word]
       else:
-        for i in range(len(rankList)):
-          if rankList.most_common()[i][0] == word:
-            break
-        kfidfdfEntryForOneApi[word] = raw_kfidf * (1 + (1 - math.floor(i / math.sqrt( omega )) / math.sqrt( omega ) ) * beta ) 
-    kfidfdfEntry['apilist'][re.sub('\.','__',entry['api_id'])] = kfidfdfEntryForOneApi
-  #the following is for api not in category
-  for entry in db.frequency.find({'category': {'$not':re.compile(category)}}).limit(50):
-    del entry['_id']
-    totalFreq = 0
-    for word in entry['wordlist']:
-      #sum all keywords in one api frequency
-      totalFreq += entry['wordlist'][word]
-    kfidfdfEntryForOneApi = {}
-    for word in entry['wordlist']:
-      apiWithWordCount = 0
-      for api in db.frequency.find({}, {'_id': 0,'wordlist.' + word: 1}):
-        if api['wordlist'] != {}:
-          apiWithWordCount += 1
-      raw_kfidf = entry['wordlist'][word]/totalFreq * math.log( apiCount / ( apiWithWordCount + 1 ), 10 )
-      print word, entry['api_id'], "raw_kfidf = ", raw_kfidf, "word freq in api = ", entry['wordlist'][word], "totalFreq =", totalFreq, "log(", apiCount, "/(", apiWithWordCount, "+1))"
-      rankList = db.kfirfbyCtgry.find({'category': category})[0]['wordlist']
-      rankList = Counter(rankList)
-      if rankList.most_common()[omega][1] >  rankList.get(word, -1):
-        kfidfdfEntryForOneApi[word] = raw_kfidf
-      else:
-        for i in range(len(rankList)):
-          if rankList.most_common()[i][0] == word:
-            break
-        kfidfdfEntryForOneApi[word] = raw_kfidf * (1 + (1 - math.floor(i / math.sqrt( omega )) / math.sqrt( omega ) ) * beta ) 
-    kfidfdfEntry['apilist'][re.sub('\.','__',entry['api_id'])] = kfidfdfEntryForOneApi
-  db.kfidfdf.insert(kfidfdfEntry)
+        rank = [k[0] for k in rankList.most_common()].index(word)
+        kfidfdfEntry['vector'][str(wordSet.index(word)+1)] = [raw_kfidf * (1 + (1 - math.floor(rank / math.sqrt( omega )) / math.sqrt( omega ) ) * beta), word] 
+    kfidfdfEntry['api'] = entry['api_id']
+    kfidfEntry['api'] = entry['api_id']
+    dbSvm.kfidfdf.insert(kfidfdfEntry)
+    dbSvm.kfidf.insert(kfidfEntry)
         
+#this method is for making all words in repo into synset.
+#For each service, this method chooses top 3 synset similar to its category and then generates a synsetKfirfSumMap which contains synsets and its corresponding words' summation of kfirf in this category.
+#this method chooses in order of the summation of word kfirf in each synset
+def wordToSynset():
+  kfirf(0.4)
+  db = db_connection['devoesvm']
+  dbRepo = db_connection['devPW']
+  #the following is for train set, we can use label to assign synset
+  for entry in db.train.find():
+    synsetWordMap = {}
+    for word in entry['wordlist']:
+      for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category'])):
+        if not synsetWordMap.has_key(synset.name):
+          synsetWordMap[synset.name] = set([word])
+        else:
+          synsetWordMap[synset.name].add(word)
+    synsetKfirfSumMap = Counter({k:sum(dbRepo.kfirfbyCtgry.find({'category':entry['category']})[0]['wordlist'][word] for word in synsetWordMap[k]) for k in synsetWordMap})
+    for pair in synsetKfirfSumMap.most_common():
+      mostSynset = pair[0]
+      for word in synsetWordMap[mostSynset]:
+        db.wordSynsetMap.insert({'word': word, 'synset': mostSynset, 'category': entry['category'], 'depth': 100})
+      mostSynsetWordSet = synsetWordMap.pop(mostSynset)
+      #the synsetWordMap changed for assignment need, while the synsetKfirfSumMap does not change.
+      for synset in synsetWordMap:
+        synsetWordMap[synset] = synsetWordMap[synset] - mostSynsetWordSet
+  #the following is for test set, we cannot use label to assign synset, we use D-MAX
+  for entry in db.test.find():
+    for entryCtgry in dbRepo.freqbyCtgry.find({},{'category':1}):
+      category = entryCtgry['category']
+      #todo calculate kfidfdf for each dimension for this test api
+      kfidfdf()
+
 #freqByService()
 #freqByCategory(db.frequency, db.freqbyCtgry)
 #kfirf(0.4)       

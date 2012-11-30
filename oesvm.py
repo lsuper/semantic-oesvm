@@ -16,42 +16,35 @@ if len(sys.argv) < 2:
   sys.exit()
 
 dbRepo = db_connection[sys.argv[1]]
-dboesvm = db_connection['oesvm']
-dbsoesvm = db_connection['soesvm']
+dbDevRepo = db_connection['devPW']
+dboesvm = db_connection['devoesvm']
+dbsoesvm = db_connection['devsoesvm']
 #set up train set and test set
 def consTrainSetAndTestSet(category, trainSetPercent, testSetSize, isSynset):
+  trainSet = list(dbRepo.frequency.find())
+  testSet = []
+  for entry in dbRepo.freqbyCtgry.find({},{'category':1}):
+    categrylst = list(dbRepo.frequency.find({'category':entry['category']}))
+    testSetSize = int((1 - trainSetPercent) * len(list(dbRepo.frequency.find({'category':entry['category']}))))
+    for i in range(testSetSize):
+      index = np.random.randint(0, len(testSet), 1)
+      testSet.append(categorylst[index])
+      del trainSet[index]
+
+  #should be updated each iteration with train+test, regard this one as training set
+  for entry in trainset: 
+    if entry['category'] == category:
+      dboesvm.newCtgry.insert(entry)
+  dboesvm.train.insert(trainSet)
+  dboesvm.test.insert(testSet)
   if isSynset:
+    freqByCategory(dboesvm.train, dbDevRepo.freqbyCtgry)
+    wordToSynset()
     freqTable = dbRepo.synsetFrequency
     dbSvm = dbsoesvm
   else:
     freqTable = dbRepo.frequency
     dbSvm = dboesvm
-  testSet = list(freqTable.find({'category': category}))
-  #old newCtgry is train + true_test, now is whole catgory set
-  dbSvm.newCtgry.insert(testSet)
-  trainSetSize = int(trainSetPercent * len(testSet))
-  trainSet = []
-  for i in range(trainSetSize):
-    index = np.random.randint(0, len(testSet), 1)
-    trainSet.append(testSet[index])
-    del testSet[index]
-  tempTestSetSize = len(testSet)
-  testSetNotInCtgry = list(freqTable.find({'category':{'$ne':category}}))
-  #there are tempTestSetSize apis within Categry in TestSet now. We need TestSetSize - tempTestSetSize more not from Categry
-  for i in range(trainSetSize):
-    index = np.random.randint(0, len(testSetNotInCtgry), 1)
-    #trainSet should have one trainSetSize category apis and one not trainSetSize category apis.
-    trainSet.append(testSetNotInCtgry[index])
-    del testSetNotInCtgry[index]
-  lst = copy.deepcopy(testSetNotInCtgry)
-  while len(testSet) < testSetSize and len(lst) > 0:
-    index = np.random.randint(0, len(lst), 1)
-    testSet.append(lst[index])
-    del lst[index]
-  dbSvm.train.insert(trainSet)
-  dbSvm.test.insert(testSet)
-  dbSvm.trainandtest.insert(trainSet)
-  dbSvm.trainandtest.insert(testSet)
 
 #this method cacultes kfirf for training category based on the whole category words(in newCtgry).
 def kfirf(alpha, isSynset):
@@ -227,8 +220,8 @@ wordToSynset()
 #build new synset frequency table in PW db
 frequencySynset()
 #construct Train Set and Test Set
-consTrainSetAndTestSet('Travel', 0.8, 7200, True)
-consTrainSetAndTestSet('Travel', 0.8, 7200, False)
+consTrainSetAndTestSet(0.9, 7200, True)
+consTrainSetAndTestSet(0.9, 7200, False)
 #generate dbSvm.freqinCtgry for calculate kfirf
 freqByCategory(dboesvm.newCtgry, dboesvm.freqinCtgry)
 freqByCategory(dbsoesvm.newCtgry, dbsoesvm.freqinCtgry)
