@@ -69,11 +69,11 @@ def kfirf(alpha, isSynset):
     for word in cnt:
       ctgryWithWord = 0
       totalCount = 0
-      print word
+      #print word
       for i in table.find({'wordlist.' + word :{'$exists':True}}):
         ctgryWithWord += 1
         totalCount += i['wordlist'][word]
-      print cnt[word],'/', maxFreq, '*( alpha * (1 -', ctgryWithWord, '/', ctgryCount, ') + (1 - alpha) * ', cnt[word], '/', totalCount, ')'
+      #print cnt[word],'/', maxFreq, '*( alpha * (1 -', ctgryWithWord, '/', ctgryCount, ') + (1 - alpha) * ', cnt[word], '/', totalCount, ')'
       kfirfEntry['wordlist'][word] = cnt[word]/maxFreq * (alpha * (1 - ctgryWithWord/ctgryCount) + (1 - alpha) * cnt[word]/totalCount)
       print word, kfirfEntry['wordlist'][word]  
     dbSvm.kfirf.insert(kfirfEntry)
@@ -177,14 +177,15 @@ def generateFilesforSvm(category, svmType, isSynset):
     
 #This method builds new Synset Frequency table
 def frequencySynset():
+  f = open('XXXX', 'w')
   for entry in dbRepo.frequency.find():
     newWordlist = {}
     for word in entry['wordlist']:
-      print word, entry['category']
       if dbRepo.wordSynsetMap.find({'word': word, 'category': entry['category']}).count():
         synset = dbRepo.wordSynsetMap.find({'word': word, 'category': entry['category']})[0]['synset']
         newWordlist[re.sub('\.','__',synset)] = newWordlist.get(re.sub('\.','__',synset), 0) + entry['wordlist'][word]
       else:
+        f.write(word + ' ')
       #because when conducting real test and training. Words in test set not always in train set, so we should assign a synset for it.
         cnt = Counter({synet: sum(dbRepo.kfirfbyCtgry.find({'category':entry['category']})[0]['wordlist'].get(lemma.name, 0) for lemma in wn.synset(synset).lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category']))})
         synset = cnt.most_common()[0]

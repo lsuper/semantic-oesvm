@@ -90,7 +90,6 @@ def wordToSynset():
     for pair in synsetKfirfSumMap.most_common():
       mostSynset = pair[0]
       for word in synsetWordMap[mostSynset]:
-        print entry['category'], {word:mostSynset},'yyy'
         db.wordSynsetMap.insert({'word': word, 'synset': mostSynset, 'category': entry['category'], 'depth': 100})
       mostSynsetWordSet = synsetWordMap.pop(mostSynset)
       #the synsetWordMap changed for assignment need, while the synsetKfirfSumMap does not change.
