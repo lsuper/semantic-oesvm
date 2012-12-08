@@ -18,6 +18,8 @@ reservedWordList = ['REST', 'WSDL', 'OWL']
 
 stopWordList = ['as', 'make', 'an', 'be', 'or', 'in', 'are', 'let', 'then', 'one', 'ha', 'can', 'service', 'services', 'us',  'do',  'we',  'use',  'user',  'users',  'using',  'allow',  'let',  'more',  'have',  'it',  'let',  'web',  'application',  'information',  'provide',  'well',  'time',  'enable',  'name',  'api',  'apis',  'developer',  'offer',  'include',  'access',  'help',  'site',  'website',  'base',  'database',  'so',  'who'] #'datum'
 
+keeplist = list(set([key for key in dict(Counter(db_connection['oesvm'].kfirf.find({'category':'Travel'})[0]['wordlist']).most_common(150))]) - set(stopWordList))
+print keeplist
 ctgryName = {'Wiki': 'knowledge', 'Real Estate': 'real_estate', 'blogging': 'blog', 'Backend': 'developer', 'PIM': 'Person Information Management', 'Medical': 'medicine', 'Financial': 'finance'}
 #this method add words in tag frequency to the mmost_common word in the list
 def handleTag(cnt, tags):

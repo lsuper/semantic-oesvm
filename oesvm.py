@@ -1,6 +1,7 @@
 from __future__ import division
 import re
-from preprocess import ctgryName,freqByCategory,wordToSynset, SynsetwithCategry
+from preprocess import keeplist, ctgryName,freqByCategory,wordToSynset, SynsetwithCategry
+from hierachy_tree import chooseSimKSynsets
 import numpy as np
 import math
 from setting import db_connection
@@ -18,6 +19,20 @@ if len(sys.argv) < 2:
 dbRepo = db_connection[sys.argv[1]]
 dboesvm = db_connection['oesvm']
 dbsoesvm = db_connection['soesvm']
+#set up train set and test set for filter
+def consTrainSetAndTestSetFilter():
+  for entry in dboesvm.train.find():
+    api = dbRepo.synsetFrequency.find({'api_id':entry['api_id']})[0]
+    dbsoesvm.train.insert(api)
+    dbsoesvm.trainandtest.insert(api)
+  for entry in dboesvm.test.find():
+    api = dbRepo.synsetFrequency.find({'api_id':entry['api_id']})[0]
+    dbsoesvm.test.insert(api)
+    dbsoesvm.trainandtest.insert(api)
+  for entry in dboesvm.newCtgry.find():
+    api = dbRepo.synsetFrequency.find({'api_id':entry['api_id']})[0]
+    dbsoesvm.newCtgry.insert(api)
+  
 #set up train set and test set
 def consTrainSetAndTestSet(category, trainSetPercent, testSetSize, isSynset):
   """
@@ -196,15 +211,17 @@ def generateFilesforSvm(category, svmType, isSynset):
     
 #This method builds new Synset Frequency table
 def frequencySynset():
-  f = open('XXXX', 'w')
+  f = open('XXXX','w')
   for entry in dbRepo.frequency.find():
     newWordlist = {}
     for word in entry['wordlist']:
+      if word not in keeplist:
+        continue
       if dbRepo.wordSynsetMap.find({'word': word, 'category': entry['category']}).count():
         synset = dbRepo.wordSynsetMap.find({'word': word, 'category': entry['category']})[0]['synset']
         newWordlist[re.sub('\.','__',synset)] = newWordlist.get(re.sub('\.','__',synset), 0) + entry['wordlist'][word]
       else:
-        f.write(word + ' ')
+        f.write(word+' '+entry['category']+'\n')
       #because when conducting real test and training. Words in test set not always in train set, so we should assign a synset for it.
         cnt = Counter({synet: sum(dbRepo.kfirfbyCtgry.find({'category':entry['category']})[0]['wordlist'].get(lemma.name, 0) for lemma in wn.synset(synset).lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category']))})
         synset = cnt.most_common()[0]
@@ -244,7 +261,6 @@ wordToSynset()
 #SynsetwithCategry()
 #build new synset frequency table in PW db
 frequencySynset()
-"""
 #construct Train Set and Test Set
 consTrainSetAndTestSet('Travel', 0.8, 7200, True)
 #consTrainSetAndTestSet('Travel', 0.8, 7200, False)
@@ -269,3 +285,23 @@ svmHelper('./dataset/master/word/oesvmtrain', './dataset/master/word/oesvmtrain'
 svmHelper('./dataset/master/synset/oesvmtrain', './dataset/master/synset/oesvmtrain', './model/master/modelforsoesvm', 'predict_test_file_soesvm')
 svmHelper('./dataset/master/word/svmtrain', './dataset/word/master/svmtrain', './model/master/modelforsvm', 'predict_test_file_svm')
 svmHelper('./dataset/master/synset/svmtrain', './dataset/master/synset/svmtrain', './model/master/modelforsynsetsvm', 'predict_test_file_synsetsvm')
+"""
+#filter with keeplist
+
+"""
+frequencySynset()
+freqByCategory(dbRepo.synsetFrequency, dbRepo.synsetFreqbyCtgry)
+consTrainSetAndTestSetFilter()
+freqByCategory(dbsoesvm.newCtgry, dbsoesvm.freqinCtgry)
+kfirf(0.4, True)
+kfidfdf(0.5, "Travel", 100, True)
+generateFilesforSvm('Travel', 'oesvm', True)
+generateFilesforSvm('Travel', 'svm', True)
+cutrow()
+svmHelper('./dataset/master/synset/oesvmtrain', './dataset/master/synset/oesvmtrain', './model/master/modelforsoesvm', 'predict_test_file_soesvm')
+svmHelper('./dataset/master/synset/svmtrain', './dataset/master/synset/svmtrain', './model/master/modelforsynsetsvm', 'predict_test_file_synsetsvm')
+"""
+svmHelper('./dataset/test/synset/oesvmtrain', './dataset/test/synset/oesvmtrain', './dataset/test/modelforsoesvm', 'predict_test_file_soesvm')
+svmHelper('./dataset/test/synset/svmtrain', './dataset/test/synset/svmtrain', './dataset/test/modelforsynsetsvm', 'predict_test_file_synsetsvm')
+svmHelper('./dataset/test/word/oesvmtrain', './dataset/test/word/oesvmtrain', './dataset/test/modelforoesvm', 'predict_test_file_oesvm')
+svmHelper('./dataset/test/word/svmtrain', './dataset/test/word/svmtrain', './dataset/test/modelforsvm', 'predict_test_file_svm')
