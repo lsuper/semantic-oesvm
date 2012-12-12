@@ -5,6 +5,7 @@ import sys
 import re
 
 from nltk.corpus import wordnet as wn
+from nltk import PorterStemmer
 
 from hierachy_tree import chooseSimKSynsets
 
@@ -16,47 +17,64 @@ db = db_connection[sys.argv[1]]
 
 reservedWordList = ['REST', 'WSDL', 'OWL']
 
-stopWordList = ['as', 'make', 'an', 'be', 'or', 'in', 'are', 'let', 'then', 'one', 'ha', 'can', 'service', 'services', 'us',  'do',  'we',  'use',  'user',  'users',  'using',  'allow',  'let',  'more',  'have',  'it',  'let',  'web',  'application',  'information',  'provide',  'well',  'time',  'enable',  'name',  'api',  'apis',  'developer',  'offer',  'include',  'access',  'help',  'site',  'website',  'base',  'database',  'so',  'who'] #'datum'
+stopWordList = ['as', 'make', 'an', 'be', 'or', 'in', 'are', 'let', 'then', 'one', 'ha', 'can', 'service', 'services', 'us',  'do',  'we',  'use',  'user',  'users',  'using',  'allow',  'let',  'more',  'have',  'it',  'let',  'web',  'application',  'information',  'provide',  'well',  'time',  'enable',  'name',  'api',  'apis',  'developer',  'offer',  'include',  'access',  'help',  'site',  'website',  'base',  'database',  'so',  'who', 'data']
 
 keeplist = list(set([key for key in dict(Counter(db_connection['oesvm'].kfirf.find({'category':'Travel'})[0]['wordlist']).most_common(150))]) - set(stopWordList))
+
 print keeplist
 ctgryName = {'Wiki': 'knowledge', 'Real Estate': 'real_estate', 'blogging': 'blog', 'Backend': 'developer', 'PIM': 'Person Information Management', 'Medical': 'medicine', 'Financial': 'finance'}
-#this method add words in tag frequency to the mmost_common word in the list
-def handleTag(cnt, tags):
-  for tag in tags:
-    if cnt.has_key(tag):
-      cnt[tag] += cnt.most_common()[0][1]
-    else:
-      cnt[tag] = cnt.most_common()[0][1]
   
-#this method filters the stem words and counts each service's words in description.
-def freqByService():
-  for api in db.apis.find():
-    dscrp = api['description']
-    lst = re.split('\s', re.sub('[^\w\-\s]', '', dscrp).strip().lower())
-    index = 0
-    while index < len(lst):
-      word = lst[index]
-      if word not in reservedWordList:
-        #special handling from java code
-        if word == 'financial':
-          lst[index] = 'finance'
-        #avoid _id is a word in dscrp
-        if word == '_id':
-          lst[index] = 'id'
-        #only VERB and NOUN are saved, do not know if wn.morphy has many speech stem, which will return as wn.morphy(word)
-        # if wn.morphy(word, wn.VERB) and wn.morphy(word, wn.NOUN) and wn.morphy(word, wn.VERB) !=  wn.morphy(word, wn.NOUN):
-        # print word, wn.morphy(word, wn.VERB), wn.morphy(word, wn.NOUN), wn.morphy(word)
-        if wn.morphy(word, wn.VERB) or wn.morphy(word, wn.NOUN):
+#preprocess words list (lowercase, remove stop word, stemming, etc.)
+def preprocessWords(lst):
+  index = 0
+  while index < len(lst):
+    word = lst[index].lower()
+    if word not in reservedWordList:
+      #special handling from java code
+      if word == 'financial':
+        lst[index] = 'finance'
+      #avoid _id is a word in dscrp
+      if word == '_id':
+        lst[index] = 'id'
+      #only VERB and NOUN are saved, do not know if wn.morphy has many speech stem, which will return as wn.morphy(word)
+      # if wn.morphy(word, wn.VERB) and wn.morphy(word, wn.NOUN) and wn.morphy(word, wn.VERB) !=  wn.morphy(word, wn.NOUN):
+      # print word, wn.morphy(word, wn.VERB), wn.morphy(word, wn.NOUN), wn.morphy(word)
+      if wn.morphy(word, wn.VERB) or wn.morphy(word, wn.NOUN):
+        if wn.morphy(word) != word:
           lst[index] = wn.morphy(word)
           word = lst[index]
-        else:
-          del lst[index]
-          continue
-        if len(word) == 1 or word in stopWordList or word.isdigit():
-          del lst[index]
-          continue
-      index += 1
+        elif wn.morphy(PorterStemmer().stem_word(word)):
+          lst[index] = PorterStemmer().stem_word(word)
+          word = lst[index]
+      else:
+        del lst[index]
+        continue
+      if len(word) == 1 or word in stopWordList or word.isdigit():
+        del lst[index]
+        continue
+    index += 1
+  return lst
+  
+#this method add words in tag frequency to the mmost_common word in the list
+def handleTag(cnt, tags):
+  tags = preprocessWords(tags)
+  if len(cnt) == 0:
+    cnt = Counter(tags)
+    return cnt
+  else:
+    for tag in tags:
+      if cnt.has_key(tag):
+        cnt[tag] += cnt.most_common()[0][1]
+      else:
+        cnt[tag] = cnt.most_common()[0][1]
+    return cnt
+#this method filters the stem words and counts each service's words in description.
+def freqByService():
+  db.frequency.drop()
+  for api in db.apis.find():
+    dscrp = api['description']
+    lst = re.split('\s', re.sub('[^\w\-\s]', '', dscrp).strip())
+    preprocessWords(lst)
     cnt = Counter(lst)
     cnt = dict(handleTag(cnt, api['tags']))
     newEntry = {}
@@ -136,6 +154,7 @@ def SynsetwithCategry():
 import copy
 #this method counts words in each category
 def freqByCategory(tablefreq, tablefreqbyCtgry):
+  tablefreqbyCtgry.drop()
   freqEntry = {}
   for entry in tablefreq.find():
     wordlist = entry['wordlist']

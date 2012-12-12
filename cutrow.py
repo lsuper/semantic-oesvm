@@ -2,7 +2,7 @@ import sys
 import os
 
 def cutrow():
-  for dirpath, dirs, files in os.walk("./rawdataset"):
+  for dirpath, dirs, files in os.walk("./rawdataset/iteration"):
     for file_name in files:
       f_path = os.path.join(dirpath, file_name)
       f = open(f_path, 'r')

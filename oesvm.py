@@ -19,32 +19,14 @@ if len(sys.argv) < 2:
 dbRepo = db_connection[sys.argv[1]]
 dboesvm = db_connection['oesvm']
 dbsoesvm = db_connection['soesvm']
-#set up train set and test set for filter
-def consTrainSetAndTestSetFilter():
-  for entry in dboesvm.train.find():
-    api = dbRepo.synsetFrequency.find({'api_id':entry['api_id']})[0]
-    dbsoesvm.train.insert(api)
-    dbsoesvm.trainandtest.insert(api)
-  for entry in dboesvm.test.find():
-    api = dbRepo.synsetFrequency.find({'api_id':entry['api_id']})[0]
-    dbsoesvm.test.insert(api)
-    dbsoesvm.trainandtest.insert(api)
-  for entry in dboesvm.newCtgry.find():
-    api = dbRepo.synsetFrequency.find({'api_id':entry['api_id']})[0]
-    dbsoesvm.newCtgry.insert(api)
-  
 #set up train set and test set
 def consTrainSetAndTestSet(category, trainSetPercent, testSetSize, isSynset):
-  """
   if isSynset:
     freqTable = dbRepo.synsetFrequency
     dbSvm = dbsoesvm
   else:
     freqTable = dbRepo.frequency
     dbSvm = dboesvm
-  """
-  freqTable = dbRepo.frequency
-  dbSvm = dboesvm
   testSet = list(freqTable.find({'category': category}))
   #old newCtgry is train + true_test, now is whole catgory set
   dbSvm.newCtgry.insert(testSet)
@@ -113,6 +95,7 @@ def kfirf(alpha, isSynset):
     dbSvm.kfirf.insert(kfirfEntry)
 
 #this method caculates kf-idfdf for all the key words in train set and test set regarding to a category(param)
+
 def kfidfdf(beta, category, omega, isSynset):
   if isSynset:
     freqTable = dbRepo.synsetFrequency
