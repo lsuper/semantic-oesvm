@@ -82,8 +82,9 @@ def freqByService(db):
 #For each service, this method chooses top 3 synset similar to its category and then generates a synsetKfirfSumMap which contains synsets and its corresponding words' summation of kfirf in this category.
 #this method chooses in order of the summation of word kfirf in each synset
 def wordToSynset(db):
-  db.wordSynsetMap.drop()
-  for entry in db.freqbyCtgry.find():
+  #db.wordSynsetMap.drop()
+  db.wordSynsetMap.remove({'category':'Travel'})
+  for entry in db.freqbyCtgry.find({'category':'Travel'}):
     synsetWordMap = {}
     for word in entry['wordlist']:
       for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category'])):
