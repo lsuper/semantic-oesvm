@@ -110,7 +110,6 @@ def chooseSimKSynsets(word, simk = 1, speech = None, category = 'Travel'):
     SynsetsSim[wordSynset] = sum([similarity(wordSynset,categorySynset) for categorySynset in categorySynsets])
   cnt = Counter(SynsetsSim)
   simKSynsets = [key for key in dict(cnt.most_common(simk))]
-  print word, simKSynsets
   return simKSynsets
       
 #this method just calculate  similarity between two word with synsets which make similarity highest

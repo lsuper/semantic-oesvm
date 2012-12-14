@@ -135,7 +135,7 @@ def kfidfdf(beta, category, omega, isSynset, db):
       if db.documentFreq.find({'word':word}).count():
         wordDocumentFreq = db.documentFreq.find({'word':word})[0]['df']
       else:
-        wordDcoumentFreq = freqTable.find({'wordlist.'+word : {'$exists':True}}).count()
+        wordDocumentFreq = freqTable.find({'wordlist.'+word : {'$exists':True}}).count()
       db.documentFreq.insert({'word':word, 'df':wordDocumentFreq})
       tfidf = entry['wordlist'][word]/totalFreq * math.log( documentTotalNumber / (wordDocumentFreq + 1 ), 10)
       tfidfEntry['vector'][str(wordSet.index(word)+1)] = [tfidf, word]
@@ -218,7 +218,6 @@ def generateFilesforSvm(category, svmType, isSynset, db):
       f = test
       t_f = true_test
       f_f = false_test
-      print db.frequency.find({'api_id':vectorEntry['api']})[0]
       if category == db.frequency.find({'api_id':vectorEntry['api']})[0]['category']:
         f.write(vectorEntry['api'] + ' 1')
         t_f.write(vectorEntry['api'] + ' 1')
@@ -279,7 +278,9 @@ def frequencySynset(db):
 def svmHelper(trainFile, testFile, modelFile, predictTestFile):
   cmd = 'svm-grid "{0}"'.format(trainFile)
   print('Cross validation...')
-  f = Popen(cmd, shell = True, stdout = PIPE).stdout
+  p = Popen(cmd, shell = True, stdout = PIPE)
+  p.wait()
+  f = p.stdout
 
   line = ''
   while True:
@@ -292,12 +293,16 @@ def svmHelper(trainFile, testFile, modelFile, predictTestFile):
   
   cmd = 'svm-train -c {0} -g {1} "{2}" "{3}"'.format(c, g, trainFile, modelFile)
   print('Training...')
-  Popen(cmd, shell = True, stdout = PIPE).communicate()
+  p = Popen(cmd, shell = True, stdout = PIPE)
+  p.communicate()
+  p.wait()
 
 
   cmd = 'svm-predict "{0}" "{1}" "{2}"'.format(testFile, modelFile, predictTestFile)
   print('Testing...')
-  Popen(cmd, shell = True).communicate()
+  p = Popen(cmd, shell = True)
+  p.communicate()
+  p.wait()
 
   print('Output prediction: {0}'.format(predictTestFile))
 
@@ -341,7 +346,6 @@ else:
   svmType = 'word'
 consInitTrainSetAndTestSet(category, isSynset, db)
 checkStability(db, category, isSynset)
-loop = 1
 while not isStop:
   generateFilesforSvm(category, 'oesvm', isSynset, db)
   cutrow()
