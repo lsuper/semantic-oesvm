@@ -52,6 +52,7 @@ def consInitTrainSetAndTestSet(category, isSynset, db):
     db.synsetFreqbyCtgry.insert(list(dbRepo.synsetFreqbyCtgry.find())) 
     db.wordSynsetMap.drop() 
     db.wordSynsetMap.insert(list(dbRepo.wordSynsetMap.find())) 
+  db.kfidfdf.drop() 
   db.kfidfdf.insert(list(dbRepo.kfidfdf.find())) 
 
 #this method cacultes kfirf for all categories, store as wordKfirf table for word, as synsetKfrif for synset (isSynset and !isWord)
@@ -368,8 +369,10 @@ while not isStop:
     if originCategory == 1 and line.rstrip('\n') == '0':
       #remove original travel now non-travel service, because we cannot assign a category for it
       db.frequency.remove({'api_id':lineNumToService[lineNum]})
+      db.synsetFrequency.remove({'api_id':lineNumToService[lineNum]})
     if originCategory == 0 and line.rstrip('\n') == '1':
       db.frequency.update({'api_id':ID}, {'$set':{'category': category}})
+      db.synsetFrequency.update({'api_id':ID}, {'$set':{'category': category}})
     lineNum += 1
   #re-build all the table
   freqByCategory(db.frequency, db.freqbyCtgry)
