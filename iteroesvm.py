@@ -116,7 +116,8 @@ def kfidfdf(beta, category, omega, isSynset, db):
   dfCounter = Counter()
   for entry in  freqTable.find():
     dfCounter += Counter([word for word in entry['wordlist']])
-  db.documentFreq.insert(dict(dfCounter))
+  documentFreqDict = dict(dfCounter) 
+  db.documentFreq.insert(documentFreqDict)
   for word in wordSet:
     db.wordIndexMap.insert({'word':word, 'index': wordSet.index(word) + 1})
   rankList = db.synsetKfirf.find({'category': category})[0]['wordlist']
@@ -136,7 +137,7 @@ def kfidfdf(beta, category, omega, isSynset, db):
     tfidfEntry = {'api':'','vector':{}}
     for word in entry['wordlist']:
       #calculate api with this word count in all the repos
-      wordDocumentFreq = db.documentFreq.find({'word':word})[0]['df']
+      wordDocumentFreq = documentFreqDict[word]
       tfidf = entry['wordlist'][word]/totalFreq * math.log( documentTotalNumber / (wordDocumentFreq + 1 ), 10)
       tfidfEntry['vector'][str(wordSet.index(word)+1)] = [tfidf, word]
       #if (word == 'travel' or word == 'amaze') and (entry['api_id'] == 'http://www.programmableweb.com/api/cleartrip'):
