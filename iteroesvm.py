@@ -113,6 +113,10 @@ def kfidfdf(beta, category, omega, isSynset, db):
   #wordIndexMap is used by new documents which are not in repository
   db.wordIndexMap.drop()
   db.documentFreq.drop()
+  dfCounter = Counter()
+  for entry in  freqTable.find():
+    dfCounter += Counter([word for word in entry['wordlist']])
+  db.documentFreq.insert(dict(dfCounter))
   for word in wordSet:
     db.wordIndexMap.insert({'word':word, 'index': wordSet.index(word) + 1})
   rankList = db.synsetKfirf.find({'category': category})[0]['wordlist']
@@ -132,12 +136,7 @@ def kfidfdf(beta, category, omega, isSynset, db):
     tfidfEntry = {'api':'','vector':{}}
     for word in entry['wordlist']:
       #calculate api with this word count in all the repos
-      wordDocumentFreq = 0
-      if db.documentFreq.find({'word':word}).count():
-        wordDocumentFreq = db.documentFreq.find({'word':word})[0]['df']
-      else:
-        wordDocumentFreq = freqTable.find({'wordlist.'+word : {'$exists':True}}).count()
-        db.documentFreq.insert({'word':word, 'df':wordDocumentFreq})
+      wordDocumentFreq = db.documentFreq.find({'word':word})[0]['df']
       tfidf = entry['wordlist'][word]/totalFreq * math.log( documentTotalNumber / (wordDocumentFreq + 1 ), 10)
       tfidfEntry['vector'][str(wordSet.index(word)+1)] = [tfidf, word]
       #if (word == 'travel' or word == 'amaze') and (entry['api_id'] == 'http://www.programmableweb.com/api/cleartrip'):
@@ -370,9 +369,11 @@ while not isStop:
       #remove original travel now non-travel service, because we cannot assign a category for it
       db.frequency.remove({'api_id':lineNumToService[lineNum]})
       db.synsetFrequency.remove({'api_id':lineNumToService[lineNum]})
+      print 'remove', lineNumToService[lineNum]
     if originCategory == 0 and line.rstrip('\n') == '1':
-      db.frequency.update({'api_id':ID}, {'$set':{'category': category}})
-      db.synsetFrequency.update({'api_id':ID}, {'$set':{'category': category}})
+      db.frequency.update({'api_id':lineNumToService[lineNum]}, {'$set':{'category': category}})
+      db.synsetFrequency.update({'api_id':lineNumToService[lineNum]}, {'$set':{'category': category}})
+      print 'update', lineNumToService[lineNum]
     lineNum += 1
   #re-build all the table
   freqByCategory(db.frequency, db.freqbyCtgry)
