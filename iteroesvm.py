@@ -137,7 +137,7 @@ def kfidfdf(beta, category, omega, isSynset, db):
         wordDocumentFreq = db.documentFreq.find({'word':word})[0]['df']
       else:
         wordDocumentFreq = freqTable.find({'wordlist.'+word : {'$exists':True}}).count()
-      db.documentFreq.insert({'word':word, 'df':wordDocumentFreq})
+        db.documentFreq.insert({'word':word, 'df':wordDocumentFreq})
       tfidf = entry['wordlist'][word]/totalFreq * math.log( documentTotalNumber / (wordDocumentFreq + 1 ), 10)
       tfidfEntry['vector'][str(wordSet.index(word)+1)] = [tfidf, word]
       #if (word == 'travel' or word == 'amaze') and (entry['api_id'] == 'http://www.programmableweb.com/api/cleartrip'):
