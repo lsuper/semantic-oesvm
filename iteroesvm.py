@@ -61,19 +61,20 @@ def kfirf(category, alpha, isSynset, isWord, db):
   if isSynset:
     if isWord:
       freqbyCtgryTable = db.freqbyCtgry
-      #db.wordKfirf.drop()
-      db.wordKfirf.remove({'category':'Travel'})
+      db.wordKfirf.drop()
+      #db.wordKfirf.remove({'category':'Travel'})
     else:
       freqbyCtgryTable = db.synsetFreqbyCtgry
-      #db.synsetKfirf.drop()
-      db.synsetKfirf.remove({'category':'Travel'})
+      db.synsetKfirf.drop()
+      #db.synsetKfirf.remove({'category':'Travel'})
   else:
     if not isWord:
       print 'Error: oesvm but caculating word kfirf'
       sys.exit()
     freqbyCtgryTable = db.freqbyCtgry
   ctgryCount = freqbyCtgryTable.count()
-  for entry in freqbyCtgryTable.find({'category':'Travel'}):
+  for entry in freqbyCtgryTable.find():
+  #for entry in freqbyCtgryTable.find({'category':'Travel'}):
     kfirfEntry = copy.deepcopy(entry)
     cnt = Counter(entry['wordlist'])
     maxFreq = cnt.most_common()[0][1]
@@ -257,10 +258,11 @@ def generateFilesforSvm(category, svmType, isSynset, db):
     
 #This method builds new Synset Frequency table using db.frequency table
 def frequencySynset(db):
-  #db.synsetFrequency.drop()
-  db.synsetFrequency.remove({category:'Travel'})
+  db.synsetFrequency.drop()
+  #db.synsetFrequency.remove({category:'Travel'})
   f = open('XXXX','w')
-  for entry in db.frequency.find({category:'Travel'}, timeout = False):
+  for entry in db.frequency.find(timeout = False):
+  #for entry in db.frequency.find({category:'Travel'}, timeout = False):
     newWordlist = {}
     for word in entry['wordlist']:
       if db.wordSynsetMap.find({'word': word, 'category': entry['category']}).count():
@@ -308,7 +310,7 @@ def svmHelper(trainFile, testFile, modelFile, predictTestFile):
   print('Output prediction: {0}'.format(predictTestFile))
 
 def checkStability(db, category, isSynset):
-  global rankList
+  global rankList, isStop
   f_ranklist = open('./ranklist/ranklist-'+ signature + '-' +str(loop), 'w')
   if isSynset:
     table = db.synsetKfirf
@@ -321,9 +323,10 @@ def checkStability(db, category, isSynset):
   length = min(150, len(newRankList), len(rankList)) 
   if newRankList == rankList:
     isStop = True
+    print 'stop!'
   else:
     rankList = newRankList
-  f_ranklist.write(' '.join(rankList))
+  f_ranklist.write(' '.join(rankList)+'\n')
   
 #use this function every time you classify a new category or you change any formula
 def initialize():
@@ -338,7 +341,8 @@ def initialize():
 #Loop
 isSynset = True
 category = 'Travel'
-#initialize()
+initialize()
+"""
 if isSynset:
   db = dbsoesvm
   svmType = 'synset'
@@ -387,3 +391,4 @@ while not isStop:
   print loop
   checkStability(db, category, isSynset)
   kfidfdf(0.5, "Travel", 100, True, db)
+"""
