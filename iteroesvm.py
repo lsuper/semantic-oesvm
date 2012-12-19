@@ -351,6 +351,8 @@ else:
 consInitTrainSetAndTestSet(category, isSynset, db)
 checkStability(db, category, isSynset)
 while not isStop:
+  if loop > 0:
+    kfidfdf(0.5, "Travel", 100, True, db)
   generateFilesforSvm(category, 'oesvm', isSynset, db)
   cutrow()
   svmHelper('./dataset/iteration/'+ svmType +'/oesvmtrain', './dataset/iteration/' + svmType + '/oesvmtest', './model/iteration/modelforsoesvm', 'predict_test_result')
@@ -389,4 +391,3 @@ while not isStop:
   loop += 1
   print loop
   checkStability(db, category, isSynset)
-  kfidfdf(0.5, "Travel", 100, True, db)
