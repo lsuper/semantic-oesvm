@@ -272,7 +272,7 @@ def frequencySynset(db):
         print 'XXX'
         f.write(word+' '+entry['category']+'\n')
       #because when conducting real test and training. Words in test set not always in train set, so we should assign a synset for it.
-        cnt = Counter({synet: sum(db.wordKfirf.find({'category':entry['category']})[0]['wordlist'].get(lemma.name, 0) for lemma in wn.synset(synset).lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category']))})
+        cnt = Counter({synset: sum(db.wordKfirf.find({'category':entry['category']})[0]['wordlist'].get(lemma.name, 0) for lemma in wn.synset(synset).lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category']))})
         synset = cnt.most_common()[0]
         newWordlist[re.sub('\.','__',synset)] = newWordlist.get(re.sub('\.','__',synset), 0) + entry['wordlist'][word]
     entry['wordlist'] = newWordlist
@@ -328,6 +328,7 @@ def checkStability(db, category, isSynset):
     rankList = newRankList
   f_ranklist.write(' '.join(rankList)+'\n')
   
+
 #use this function every time you classify a new category or you change any formula
 def initialize():
   freqByService(dbRepo)
