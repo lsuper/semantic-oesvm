@@ -6,6 +6,8 @@ import re
 import sys
 from subprocess import *
 import math
+from hierachy_tree import chooseSimKSynsets
+from nltk.corpus import wordnet as wn
 
 dbsoesvm = db_connection['soesvm']
 
@@ -49,8 +51,8 @@ def synsetFrequency(freqEntry):
       synset = dbsoesvm.wordSynsetMap.find({'category':category, 'word': word})[0]['synset'].replace('.','__')
       newWordlist[synset] = newWordlist.get(synset, 0) + freqEntry['wordlist'][word]
     else:
-      cnt = Counter({synset: sum(dbsoesvm.wordKfirf.find({'category':category})[0]['wordlist'].get(lemma.name, 0) for lemma in wn.synset(synset).lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(category, category))})
-      synset = cnt.most_common()[0].replace('.','__')
+      cnt = Counter({synset: sum(dbsoesvm.wordKfirf.find({'category':category})[0]['wordlist'].get(lemma.name, 0) for lemma in synset.lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(category, category))})
+      synset = cnt.most_common()[0][0].name.replace('.','__')
       newWordlist[synset] = newWordlist.get(synset, 0) + freqEntry['wordlist'][word]
     wordToSynsetMap[word] = synset.replace('__','.')
   freqEntry['wordlist'] = newWordlist
@@ -110,9 +112,9 @@ def predict(modelFile, content, predictTestFile, testFile):
   line = f_result.readline()
   print line
   if line.rstrip('\n') == '1':
-    return 'Travel', wordToSynsetMap
+    return {'category': 'Travel', 'wordToSynsetCtgry': initialCtgry, 'wordToSynsetMap': wordToSynsetMap}
   else:
-    return 'non-Travel', initialCtgry, wordToSynsetMap
+    return {'category': 'non-Travel', 'wordToSynsetCtgry': initialCtgry, 'wordToSynsetMap': wordToSynsetMap}
 
 #the following is main part
 """
