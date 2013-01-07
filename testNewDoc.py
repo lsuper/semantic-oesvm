@@ -8,6 +8,7 @@ from subprocess import *
 import math
 from hierachy_tree import chooseSimKSynsets
 from nltk.corpus import wordnet as wn
+import os
 
 dbsoesvm = db_connection['soesvm']
 
@@ -117,10 +118,18 @@ def predict(modelFile, content, predictTestFile, testFile):
     return {'category': 'non-Travel', 'wordToSynsetCtgry': initialCtgry, 'wordToSynsetMap': wordToSynsetMap}
 
 #the following is main part
-"""
-f = open(sys.argv[1])
-content = '' 
-for line in f:
-  content += line
-print predict('/home/lsuper/Projects/semantic-oesvm/model/iteration/modelforsoesvm', content, '/home/lsuper/Projects/semantic-oesvm/test/predict_result', '/home/lsuper/Projects/semantic-oesvm/test/svm_test')
-"""
+if __name__ == '__main__':
+  programPath = '.'
+  if len(sys.argv) != 2:
+    print 'error: Need one directory'
+  else:
+    absPath = os.path.abspath(sys.argv[1])
+    result = {}
+    for dirpath, dirs, files in os.walk(absPath):
+      for filename in files:
+        f = open(os.path.join(dirpath, filename))
+        content = '' 
+        for line in f:
+          content += line
+          result[os.path.join(dirpath, filename)] = predict(programPath + '/model/iteration/modelforsoesvm', content, programPath + '/test/predict_result', programPath + '/test/svm_test') 
+    print result
