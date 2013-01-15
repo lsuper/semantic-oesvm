@@ -52,7 +52,8 @@ def synsetFrequency(freqEntry):
       newWordlist[synset] = newWordlist.get(synset, 0) + freqEntry['wordlist'][word]
     wordToSynsetMap[word] = synset.replace('__','.')
   freqEntry['wordlist'] = newWordlist
-  return freqEntry, wordToSynsetMap
+  print freqEntry
+  return freqEntry, wordToSynsetMap, category
 
 def kfidfdf(beta, category, omega, freqEntry):
   totalFreq = 0
@@ -81,19 +82,22 @@ def kfidfdf(beta, category, omega, freqEntry):
         kfidfdfEntry['vector'][str(dbsoesvm.wordIndexMap.find({'word':word})[0]['index']+1)] = [tfidf * (1 + (1 - math.floor(rank / math.sqrt( omega )) / math.sqrt( omega ) ) * beta), word] 
   return kfidfdfEntry, tfidfEntry 
    
-def generateFilesforSvm(category, vectorEntry, testFile):
+def generateFilesforSvm(category, vectorEntry, testFile, initialCtgry):
   f = open(testFile, 'w')
   #abitrary assigned 0
-  f.write('0')
+  if category == initialCtgry:
+    f.write('1')
+  else:
+    f.write('0')
   for key in sorted(int(k) for k in vectorEntry['vector']):
     f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
   f.write('\n')
   f.close()
 
 def predict(modelFile, content, predictTestFile, testFile):
-  freqEntry = synsetFrequency(frequency(content))[0]
+  freqEntry, wordToSynsetMap, initialCtgry = synsetFrequency(frequency(content))
   vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry)[0]
-  generateFilesforSvm('Travel', vectorEntry, testFile)
+  generateFilesforSvm('Travel', vectorEntry, testFile, initialCtgry)
   cmd = 'svm-predict "{0}" "{1}" "{2}"'.format(testFile, modelFile, predictTestFile)
   print('Testing...')
   p = Popen(cmd, shell = True)
@@ -101,15 +105,17 @@ def predict(modelFile, content, predictTestFile, testFile):
   p.wait()
   f_result = open(predictTestFile)
   line = f_result.readline()
+  print line
   if line.rstrip('\n') == '1':
-    return 'Travel'
+    return 'Travel', wordToSynsetMap
   else:
-    return 'non-Travel' 
+    return 'non-Travel', initialCtgry, wordToSynsetMap
 
 #the following is main part
+"""
 f = open(sys.argv[1])
 content = '' 
 for line in f:
   content += line
 print predict('/home/lsuper/Projects/semantic-oesvm/model/iteration/modelforsoesvm', content, '/home/lsuper/Projects/semantic-oesvm/test/predict_result', '/home/lsuper/Projects/semantic-oesvm/test/svm_test')
-
+"""

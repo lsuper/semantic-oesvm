@@ -18,11 +18,13 @@ def update():
   print "api not in db"
   insert_Pair()
   print "join table done"
-  call([setting.db_path + "/bin/mongodump", "--db", "PW_" + timestamp,  "-o", setting.working_path + "/dump/"])
+  #call([setting.db_path + "/bin/mongodump", "--db", "PW_" + timestamp,  "-o", setting.working_path + "/dump/"])
+  call(["mongodump", "--db", "PW_" + timestamp,  "-o", setting.working_path + "/dump/"])
   print "drop done"
   db = setting.db_connection["utilities"]
   db.dump.insert({"filename" : "PW_" + timestamp})
   print "update all done!"
+ """ 
   previous = db.previous.find()[0]["filename"]
   print previous
   compare("PW_" + timestamp, previous)
@@ -31,3 +33,4 @@ def update():
   db.previous.insert({"filename" : "PW_" + timestamp})
 #  db.previous.insert({"filename" : "PW_2012_09_20_17_41_01"})
   print "compare done"
+"""
