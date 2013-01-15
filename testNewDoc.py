@@ -12,6 +12,7 @@ import os
 
 dbsoesvm = db_connection['soesvm']
 
+#This method calculate frequency of each preprocessd words. The return value contains also contain initialCategory.
 def frequency(content):
   lst = re.split('\s', re.sub('[^\w\-\s]', '', content).strip())
   preprocessWords(lst)
@@ -60,6 +61,7 @@ def synsetFrequency(freqEntry):
   print freqEntry
   return freqEntry, wordToSynsetMap, category
 
+#This method calculates the kfidfdf for the new document words. You should see that the document frequency actuall includes this new document.
 def kfidfdf(beta, category, omega, freqEntry):
   totalFreq = 0
   documentTotalNumber = dbsoesvm.synsetFrequency.count() 
@@ -87,6 +89,7 @@ def kfidfdf(beta, category, omega, freqEntry):
         kfidfdfEntry['vector'][str(dbsoesvm.wordIndexMap.find({'word':word})[0]['index'])] = [tfidf * (1 + (1 - math.floor(rank / math.sqrt( omega )) / math.sqrt( omega ) ) * beta), word] 
   return kfidfdfEntry, tfidfEntry 
    
+#This method generates the training and testing file for libSVM.
 def generateFilesforSvm(category, vectorEntry, testFile, initialCtgry):
   f = open(testFile, 'w')
   #abitrary assigned 0
@@ -99,6 +102,7 @@ def generateFilesforSvm(category, vectorEntry, testFile, initialCtgry):
   f.write('\n')
   f.close()
 
+#This method can generate a modelFile using trainFile, test testFile with the model and output result to predictTestFile
 def predict(modelFile, content, predictTestFile, testFile):
   freqEntry, wordToSynsetMap, initialCtgry = synsetFrequency(frequency(content))
   vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry)[0]
