@@ -57,16 +57,20 @@ def consInitTrainSetAndTestSet(category, isSynset, db):
 
 #this method cacultes kfirf for all categories, store as wordKfirf table for word, as synsetKfrif for synset (isSynset and !isWord)
 # all tables used are in db
-def kfirf(category, alpha, isSynset, isWord, db):
+def kfirf(category, alpha, isSynset, isWord,  db, isInit = False):
   if isSynset:
     if isWord:
       freqbyCtgryTable = db.freqbyCtgry
-      #db.wordKfirf.drop()
-      db.wordKfirf.remove({'category':'Travel'})
+      if isInit:
+        db.wordKfirf.drop()
+      else:
+        db.wordKfirf.remove({'category':'Travel'})
     else:
       freqbyCtgryTable = db.synsetFreqbyCtgry
-      #db.synsetKfirf.drop()
-      db.synsetKfirf.remove({'category':'Travel'})
+      if isInit:
+        db.synsetKfirf.drop()
+      else:
+        db.synsetKfirf.remove({'category':'Travel'})
   else:
     if not isWord:
       print 'Error: oesvm but caculating word kfirf'
@@ -257,12 +261,17 @@ def generateFilesforSvm(category, svmType, isSynset, db):
       f.write('\n')
     
 #This method builds new Synset Frequency table using db.frequency table
-def frequencySynset(db):
-  #db.synsetFrequency.drop()
-  db.synsetFrequency.remove({category:'Travel'})
+def frequencySynset(db, isInit = False):
+  if isInit:
+    db.synsetFrequency.drop()
+  else:
+    db.synsetFrequency.remove({'category':'Travel'})
   f = open('XXXX','w')
-  #for entry in db.frequency.find(timeout = False):
-  for entry in db.frequency.find({category:'Travel'}, timeout = False):
+  if isInit:
+    query = {}
+  else:
+    query = {'category':'Travel'}
+  for entry in db.frequency.find(query, timeout = False):
     newWordlist = {}
     for word in entry['wordlist']:
       if db.wordSynsetMap.find({'word': word, 'category': entry['category']}).count():
@@ -271,13 +280,14 @@ def frequencySynset(db):
       else:
         print 'XXX'
         f.write(word+' '+entry['category']+'\n')
-      #because when conducting real test and training. Words in test set not always in train set, so we should assign a synset for it.
-        cnt = Counter({synset: sum(db.wordKfirf.find({'category':entry['category']})[0]['wordlist'].get(lemma.name, 0) for lemma in wn.synset(synset).lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category']))})
+        #because when conducting real test and training. Words in test set not always in train set, so we should assign a synset for it.
+        cnt = Counter({synet: sum(db.wordKfirf.find({'category':entry['category']})[0]['wordlist'].get(lemma.name, 0) for lemma in wn.synset(synset).lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category']))})
         synset = cnt.most_common()[0]
         newWordlist[re.sub('\.','__',synset)] = newWordlist.get(re.sub('\.','__',synset), 0) + entry['wordlist'][word]
     entry['wordlist'] = newWordlist
     db.synsetFrequency.insert(entry)
 
+#This method can generate a modelFile using trainFile, test testFile with the model and output result to predictTestFile
 def svmHelper(trainFile, testFile, modelFile, predictTestFile):
   cmd = 'svm-grid "{0}"'.format(trainFile)
   print('Cross validation...')
@@ -309,6 +319,7 @@ def svmHelper(trainFile, testFile, modelFile, predictTestFile):
 
   print('Output prediction: {0}'.format(predictTestFile))
 
+#This method check whether the ranklist is stable. If the ranklist is stable, the iteration can stop.
 def checkStability(db, category, isSynset):
   global rankList, isStop
   f_ranklist = open('./ranklist/ranklist-'+ signature + '-' +str(loop), 'w')
@@ -331,18 +342,22 @@ def checkStability(db, category, isSynset):
 
 #use this function every time you classify a new category or you change any formula
 def initialize():
+  global category
   freqByService(dbRepo)
   freqByCategory(dbRepo.frequency, dbRepo.freqbyCtgry)
-  kfirf(category, 0.4, isSynset, True, dbRepo)
+  kfirf(category, 0.4, isSynset, True, dbRepo, True)
   wordToSynset(dbRepo)
-  frequencySynset(dbRepo)
+  frequencySynset(dbRepo, True)
   freqByCategory(dbRepo.synsetFrequency, dbRepo.synsetFreqbyCtgry)
   kfirf(category, 0.4, isSynset, False, dbRepo)
-  kfidfdf(0.5, "Travel", 100, True, dbRepo)
+  #kfidfdf is only for category's api
+  kfidfdf(0.5, category, 100, True, dbRepo)
 #Loop
 isSynset = True
 category = 'Travel'
-#initialize()
+isInit = True
+if isInit:
+  initialize()
 if isSynset:
   db = dbsoesvm
   svmType = 'synset'
@@ -352,6 +367,8 @@ else:
 consInitTrainSetAndTestSet(category, isSynset, db)
 checkStability(db, category, isSynset)
 while not isStop:
+  if loop > 0:
+    kfidfdf(0.5, category, 100, True, db)
   generateFilesforSvm(category, 'oesvm', isSynset, db)
   cutrow()
   svmHelper('./dataset/iteration/'+ svmType +'/oesvmtrain', './dataset/iteration/' + svmType + '/oesvmtest', './model/iteration/modelforsoesvm', 'predict_test_result')
@@ -390,4 +407,3 @@ while not isStop:
   loop += 1
   print loop
   checkStability(db, category, isSynset)
-  kfidfdf(0.5, "Travel", 100, True, db)

@@ -81,11 +81,16 @@ def freqByService(db):
 #this method is for making all words in repo into synset.
 #For each service, this method chooses top 3 synset similar to its category and then generates a synsetKfirfSumMap which contains synsets and its corresponding words' summation of kfirf in this category.
 #this method chooses in order of the summation of word kfirf in each synset
-def wordToSynset(db):
-  #db.wordSynsetMap.drop()
-  db.wordSynsetMap.remove({'category':'Travel'})
-  #for entry in db.freqbyCtgry.find():
-  for entry in db.freqbyCtgry.find({'category':'Travel'}):
+def wordToSynset(db, isInit = False):
+  if isInit:
+    db.wordSynsetMap.drop()
+  else:
+    db.wordSynsetMap.remove({'category':'Travel'})
+  if isInit:
+    query = {}
+  else:
+    query = {'category':'Travel'}
+  for entry in db.freqbyCtgry.find(query):
     synsetWordMap = {}
     for word in entry['wordlist']:
       for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(entry['category'], entry['category'])):
@@ -97,12 +102,15 @@ def wordToSynset(db):
     for pair in synsetKfirfSumMap.most_common():
       mostSynset = pair[0]
       for word in synsetWordMap[mostSynset]:
-        db.wordSynsetMap.insert({'word': word, 'synset': mostSynset, 'category': entry['category'], 'depth': 100})
+      #Actually we can only insert <word synset> never inserted before.
+        if db.wordSynsetMap.find({'word': word, 'synset': mostSynset, 'category': entry['category']}).count() == 0:
+          db.wordSynsetMap.insert({'word': word, 'synset': mostSynset, 'category': entry['category'], 'depth': 100})
+      """
       mostSynsetWordSet = synsetWordMap.pop(mostSynset)
       #the synsetWordMap changed for assignment need, while the synsetKfirfSumMap does not change.
       for synset in synsetWordMap:
         synsetWordMap[synset] = synsetWordMap[synset] - mostSynsetWordSet
-
+      """
 
 
 #this method counts words in each category
