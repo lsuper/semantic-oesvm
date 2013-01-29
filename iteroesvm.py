@@ -19,66 +19,37 @@ dbRepo = db_connection['PW_test']
 dboesvm = db_connection['oesvm']
 dbsoesvm = db_connection['soesvm']
 
+dbTrain = db_connection['trainSet']
+dbTest = db_connection['testSet']
+
 loop = 0
 isStop = False
 rankList = []
 signature = hashlib.md5(str(datetime.now())).hexdigest()
 #todo: if you want to compare between oesvm soesvm, init training set should be same. so another method should be written for copy api from soesvm initTrain table to oesvm initTrain table
 #set up init Training set and copy the whole repository frequency table for testing
-def consInitTrainSetAndTestSet(category, isSynset, db):
-  freqTable = dbRepo.frequency
-  trainSet = list(freqTable.find({'category': category}))
-  #initTrain is just a set for knowing what is the init training set apis
-  db.initTrain.drop()
-  db.initTrain.insert(trainSet)
-  serviceNotInCtgry = list(freqTable.find({'category':{'$ne':category}}))
-  #half of the initTrain Set are in category, the other half not.
-  halfTrainSetSize = len(trainSet)
-  for i in range(halfTrainSetSize):
-    index = np.random.randint(0, len(serviceNotInCtgry), 1)
-    db.initTrain.insert(serviceNotInCtgry[index])
-    del serviceNotInCtgry[index]
-  #construct testing set data
-  db.frequency.drop()
-  db.frequency.insert(list(dbRepo.frequency.find()))
-  db.wordKfirf.drop()
-  db.wordKfirf.insert(list(dbRepo.wordKfirf.find()))
-  if isSynset:
-    db.synsetKfirf.drop()
-    db.synsetKfirf.insert(list(dbRepo.synsetKfirf.find()))
-    db.synsetFrequency.drop() 
-    db.synsetFrequency.insert(list(dbRepo.synsetFrequency.find())) 
-    db.synsetFreqbyCtgry.drop() 
-    db.synsetFreqbyCtgry.insert(list(dbRepo.synsetFreqbyCtgry.find())) 
-    db.wordSynsetMap.drop() 
-    db.wordSynsetMap.insert(list(dbRepo.wordSynsetMap.find())) 
-  db.kfidfdf.drop() 
-  db.kfidfdf.insert(list(dbRepo.kfidfdf.find())) 
+def consInitTrainSetAndTestSet(category, testPercent, db):
+  trainSet = list(db.apis.find())
+  dbTrain.apis.drop()
+  dbTest.apis.drop()
+  testSetSize = int(len(trainSet) * testPercent)
+  for i in range(testSetSize):
+    index = np.random.randint(0, len(trainSet), 1)
+    dbTest.apis.insert(trainSet[index])
+    del trainSet[index]
+  dbTrain.apis.insert(trainSet)
 
 #this method cacultes kfirf for all categories, store as wordKfirf table for word, as synsetKfrif for synset (isSynset and !isWord)
 # all tables used are in db
-def kfirf(category, alpha, isSynset, isWord,  db, isInit = False):
-  if isSynset:
-    if isWord:
-      freqbyCtgryTable = db.freqbyCtgry
-      if isInit:
-        db.wordKfirf.drop()
-      else:
-        db.wordKfirf.remove({'category':'Travel'})
-    else:
-      freqbyCtgryTable = db.synsetFreqbyCtgry
-      if isInit:
-        db.synsetKfirf.drop()
-      else:
-        db.synsetKfirf.remove({'category':'Travel'})
-  else:
-    if not isWord:
-      print 'Error: oesvm but caculating word kfirf'
-      sys.exit()
+def kfirf(category, alpha, isWord, db):
+  if isWord:
     freqbyCtgryTable = db.freqbyCtgry
+    db.wordKfirf.drop()
+  else:
+    freqbyCtgryTable = db.synsetFreqbyCtgry
+    db.synsetKfirf.drop()
   ctgryCount = freqbyCtgryTable.count()
-  #for entry in freqbyCtgryTable.find():
-  for entry in freqbyCtgryTable.find({'category':'Travel'}):
+  for entry in freqbyCtgryTable.find():
     kfirfEntry = copy.deepcopy(entry)
     cnt = Counter(entry['wordlist'])
     maxFreq = cnt.most_common()[0][1]
@@ -100,11 +71,15 @@ def kfirf(category, alpha, isSynset, isWord,  db, isInit = False):
 
 #this method caculates kf-idfdf for all the key words in db frequency table regarding to a category(param)
 
-def kfidfdf(beta, category, omega, isSynset, db):
+def kfidfdf(beta, category, omega, isSynset):
   if isSynset:
-    freqTable = db.synsetFrequency
+    freqTable = dbTrain.synsetFrequency
+    db = dbsoesvm
+    rankList = dbTrain.synsetKfirf.find({'category': category})[0]['wordlist']
   else:
-    freqTable = db.frequency
+    freqTable = dbTrain.frequency
+    db = dboesvm
+    rankList = dbTrain.wordKfirf.find({'category': category})[0]['wordlist']
   db.kfidfdf.drop()
   db.tfidf.drop()
   # sum all apis
@@ -125,7 +100,6 @@ def kfidfdf(beta, category, omega, isSynset, db):
   db.documentFreq.insert(documentFreqDict)
   for word in wordSet:
     db.wordIndexMap.insert({'word':word, 'index': wordSet.index(word) + 1})
-  rankList = db.synsetKfirf.find({'category': category})[0]['wordlist']
   rankList = Counter(rankList)
   if omega < len(rankList):
     omega = len(rankList) - 1
@@ -162,115 +136,43 @@ def kfidfdf(beta, category, omega, isSynset, db):
 def generateFilesforSvm(category, svmType, isSynset, db):
   #todo: add support for isSynset is False. Actually it should work well now. However each time, we should refresh the oesvm kfidf kfirf, kfidfdf every time we change between synset or not synset(word)
   if isSynset:
-    path = './rawdataset/iteration/synset/'
+    path = './rawdataset/master/synset/'
   else:
-    path = './rawdataset/iteration/word/'
+    path = './rawdataset/master/word/'
   if svmType == 'svm':
     table = db.tfidf
   else:
     table = db.kfidfdf
   train = open(path + svmType + 'train', 'w')
-  test = open(path + svmType + 'test', 'w')
   true_train = open(path + svmType + 'true_train', 'w')
-  true_test = open(path + svmType + 'true_test', 'w')
   false_train = open(path + svmType + 'false_train', 'w')
-  false_test = open(path + svmType + 'false_test', 'w')
   #first loop, train and test are different, train is small. test is the whole repository
-  if loop == 0: 
-    for entry in db.initTrain.find():
-      f = train
-      t_f = true_train
-      f_f = false_train
-      vectorEntry = table.find({'api':entry['api_id']})[0]
-      if category == entry['category']:
-        f.write(vectorEntry['api'] + ' 1')
-        t_f.write(vectorEntry['api'] + ' 1')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          t_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        t_f.write('\n')
-      else:
-        f.write(vectorEntry['api'] + ' 0')
-        f_f.write(vectorEntry['api'] + ' 0')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          f_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        f_f.write('\n')
+  for entry in dbTrain.frequency.find():
+    f = train
+    t_f = true_train
+    f_f = false_train
+    vectorEntry = table.find({'api':entry['api_id']})[0]
+    if category == entry['category']:
+      f.write(vectorEntry['api'] + ' 1')
+      t_f.write(vectorEntry['api'] + ' 1')
       for key in sorted(int(k) for k in vectorEntry['vector']):
-        f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-      f.write('\n')
-    #for test set
-    for vectorEntry in table.find():
-      f = test
-      t_f = true_test
-      f_f = false_test
-      if category == db.frequency.find({'api_id':vectorEntry['api']})[0]['category']:
-        f.write(vectorEntry['api'] + ' 1')
-        t_f.write(vectorEntry['api'] + ' 1')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          t_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        t_f.write('\n')
-      else:
-        f.write(vectorEntry['api'] + ' 0')
-        f_f.write(vectorEntry['api'] + ' 0')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          f_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        f_f.write('\n')
+        t_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
+      t_f.write('\n')
+    else:
+      f.write(vectorEntry['api'] + ' 0')
+      f_f.write(vectorEntry['api'] + ' 0')
       for key in sorted(int(k) for k in vectorEntry['vector']):
-        f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-      f.write('\n')
-  #the following loops
-  else:
-    #for test set
-    for vectorEntry in table.find():
-      f = test
-      t_f = true_test
-      f_f = false_test
-      if category == db.frequency.find({'api_id':vectorEntry['api']})[0]['category']:
-        f.write(vectorEntry['api'] + ' 1')
-        t_f.write(vectorEntry['api'] + ' 1')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          t_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        t_f.write('\n')
-      else:
-        f.write(vectorEntry['api'] + ' 0')
-        f_f.write(vectorEntry['api'] + ' 0')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          f_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        f_f.write('\n')
-      for key in sorted(int(k) for k in vectorEntry['vector']):
-        f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-      f.write('\n')
-    #for train set
-    for vectorEntry in table.find():
-      f = train
-      t_f = true_train
-      f_f = false_train
-      if category == db.frequency.find({'api_id':vectorEntry['api']})[0]['category']:
-        f.write(vectorEntry['api'] + ' 1')
-        t_f.write(vectorEntry['api'] + ' 1')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          t_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        t_f.write('\n')
-      else:
-        f.write(vectorEntry['api'] + ' 0')
-        f_f.write(vectorEntry['api'] + ' 0')
-        for key in sorted(int(k) for k in vectorEntry['vector']):
-          f_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-        f_f.write('\n')
-      for key in sorted(int(k) for k in vectorEntry['vector']):
-        f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
-      f.write('\n')
+        f_f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
+      f_f.write('\n')
+    for key in sorted(int(k) for k in vectorEntry['vector']):
+      f.write(' ' + str(key) + ':' + str(vectorEntry['vector'][str(key)][0]))
+    f.write('\n')
     
 #This method builds new Synset Frequency table using db.frequency table
-def frequencySynset(db, isInit = False):
-  if isInit:
-    db.synsetFrequency.drop()
-  else:
-    db.synsetFrequency.remove({'category':'Travel'})
-  f = open('XXXX','w')
-  if isInit:
-    query = {}
-  else:
-    query = {'category':'Travel'}
+def frequencySynset(db):
+  db.synsetFrequency.drop()
+  query = {}
+  f = open('XXXX', 'w')
   for entry in db.frequency.find(query, timeout = False):
     newWordlist = {}
     for word in entry['wordlist']:
@@ -343,15 +245,31 @@ def checkStability(db, category, isSynset):
 #use this function every time you classify a new category or you change any formula
 def initialize():
   global category
-  freqByService(dbRepo)
-  freqByCategory(dbRepo.frequency, dbRepo.freqbyCtgry)
-  kfirf(category, 0.4, isSynset, True, dbRepo, True)
-  wordToSynset(dbRepo)
-  frequencySynset(dbRepo, True)
-  freqByCategory(dbRepo.synsetFrequency, dbRepo.synsetFreqbyCtgry)
-  kfirf(category, 0.4, isSynset, False, dbRepo)
+  consInitTrainSetAndTestSet(category, 0.1, dbRepo)
+  freqByService(dbTrain)
+  freqByCategory(dbTrain.frequency, dbTrain.freqbyCtgry)
+  kfirf(category, 0.4, True, dbTrain)
+  wordToSynset(dbTrain)
+  frequencySynset(dbTrain)
+  freqByCategory(dbTrain.synsetFrequency, dbTrain.synsetFreqbyCtgry)
+  kfirf(category, 0.4, False, dbTrain)
   #kfidfdf is only for category's api
-  kfidfdf(0.5, category, 100, True, dbRepo)
+  kfidfdf(0.5, category, 100, True)
+  kfidfdf(0.5, category, 100, False)
+
+category = 'Travel'
+#initialize()
+generateFilesforSvm('Travel', 'oesvm', False, dboesvm)
+generateFilesforSvm('Travel', 'svm', False, dboesvm)
+generateFilesforSvm('Travel', 'soesvm', True, dbsoesvm)
+generateFilesforSvm('Travel', 'svm', True, dbsoesvm)
+cutrow()
+svmHelper('./dataset/master/word/oesvmtrain', './dataset/master/word/oesvmtrain', './model/master/modelforoesvm', 'predict_test_result')
+svmHelper('./dataset/master/word/svmtrain', './dataset/master/word/svmtrain', './model/master/modelforsvm', 'predict_test_result')
+svmHelper('./dataset/master/synset/svmtrain', './dataset/master/synset/svmtrain', './model/master/modelforsynsetsvm', 'predict_test_result')
+svmHelper('./dataset/master/synset/soesvmtrain', './dataset/master/synset/soesvmtrain', './model/master/modelforsoesvm', 'predict_test_result')
+
+"""
 #Loop
 isSynset = True
 category = 'Travel'
@@ -364,7 +282,6 @@ if isSynset:
 else:
   db = dboesvm
   svmType = 'word'
-consInitTrainSetAndTestSet(category, isSynset, db)
 checkStability(db, category, isSynset)
 while not isStop:
   if loop > 0:
@@ -407,3 +324,4 @@ while not isStop:
   loop += 1
   print loop
   checkStability(db, category, isSynset)
+"""

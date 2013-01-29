@@ -81,15 +81,10 @@ def freqByService(db):
 #this method is for making all words in repo into synset.
 #For each service, this method chooses top 3 synset similar to its category and then generates a synsetKfirfSumMap which contains synsets and its corresponding words' summation of kfirf in this category.
 #this method chooses in order of the summation of word kfirf in each synset
-def wordToSynset(db, isInit = False):
-  if isInit:
-    db.wordSynsetMap.drop()
-  else:
-    db.wordSynsetMap.remove({'category':'Travel'})
-  if isInit:
-    query = {}
-  else:
-    query = {'category':'Travel'}
+def wordToSynset(db):
+  db.wordSynsetMap.drop()
+  db.wordSynsetMap.remove({'category':'Travel'})
+  query = {}
   for entry in db.freqbyCtgry.find(query):
     synsetWordMap = {}
     for word in entry['wordlist']:
