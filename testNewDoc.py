@@ -105,15 +105,16 @@ def generateFilesforSvm(category, vectorEntry, testFile, pWCtgry):
 #This method generates vector for a test document, and use generateFilesforSvm to write one line to testFile
 def generateFiles(apiID, testFiles, pWCtgry):
   freqEntry, wordToSynsetMap, initialCtgry = synsetFrequency(frequency(apiID))
-  vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, True)[0]
-  generateFilesforSvm('Travel', vectorEntry, testFiles['soesvm'], pWCtgry)
-  vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, True)[1]
-  generateFilesforSvm('Travel', vectorEntry, testFiles['synsetsvm'], pWCtgry)
+  vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, True)
+  generateFilesforSvm('Travel', vectorEntry[0], testFiles['soesvm'], pWCtgry)
+  #vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, True)[1]
+  generateFilesforSvm('Travel', vectorEntry[1], testFiles['synsetsvm'], pWCtgry)
   freqEntry = frequency(apiID)
-  vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, False)[0]
-  generateFilesforSvm('Travel', vectorEntry, testFiles['oesvm'], pWCtgry)
-  vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, False)[0]
-  generateFilesforSvm('Travel', vectorEntry, testFiles['svm'], pWCtgry)
+  vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, False)
+  generateFilesforSvm('Travel', vectorEntry[0], testFiles['oesvm'], pWCtgry)
+  #vectorEntry = kfidfdf(0.5, 'Travel', 100, freqEntry, False)[0]
+  generateFilesforSvm('Travel', vectorEntry[1], testFiles['svm'], pWCtgry)
+  return initialCtgry
 
 #This method can use libSVM to test testFile with modelFile, and output result to predictTestFile
 def predict(modelFileName, testFileName):
@@ -133,36 +134,47 @@ def predict(modelFileName, testFileName):
 
 #the following is main part
 if __name__ == '__main__':
-  testFiles = {}
-  testFileNames = {}
+  testFiles = {'true': {}, 'false': {}}
+  testFileNames = {'true': {}, 'false': {}}
   modelFileNames = {}
-  testFileNames['soesvm'] = './test/soesvm'
-  testFileNames['synsetsvm'] = './test/synsetsvm'
-  testFileNames['oesvm'] = './test/oesvm'
-  testFileNames['svm'] = './test/svm'
+  for key in testFileNames:
+    testFileNames[key]['soesvm'] = './test/soesvm_' + key
+    testFileNames[key]['synsetsvm'] = './test/synsetsvm_' + key
+    testFileNames[key]['oesvm'] = './test/oesvm_' + key
+    testFileNames[key]['svm'] = './test/svm_' + key
   modelFileNames['soesvm'] = './model/master/modelforsoesvm'
   modelFileNames['synsetsvm'] = './model/master/modelforsynsetsvm'
   modelFileNames['oesvm'] = './model/master/modelforoesvm'
   modelFileNames['svm'] = './model/master/modelforsvm'
-  f_Truth = open('./test/testTruth', 'w')
-  for entry in dbTest.apis.find():
-    freqEntry, wordToSynsetMap, initialCtgry = synsetFrequency(frequency(entry['id']))
-    f_Truth.write(initialCtgry + ' ' +entry['category'] + ' ' + entry['id'] + '\n')
   """
+  f_trueTruth = open('./test/testTruth_true', 'w')
+  f_falseTruth = open('./test/testTruth_false', 'w')
   freqByService(dbTest)
-  for key, value in testFileNames.iteritems():
-    testFiles[key] = open(value, 'w')
-  for entry in dbTest.apis.find():
-    generateFiles(entry['id'], testFiles, entry['category'])
-    f_Truth.write(entry['category'] + ' ' + entry['id'] + '\n')
-  f_Truth.close()
+  for key, value in testFileNames['true'].iteritems():
+    testFiles['true'][key] = open(value, 'w')
+  for key, value in testFileNames['false'].iteritems():
+    testFiles['false'][key] = open(value, 'w')
+  for entry in dbTest.apis.find(timeout = False):
+    if entry['category'] == 'Travel':
+      initialCtgry = generateFiles(entry['id'], testFiles['true'], entry['category'])
+      f_trueTruth.write(initialCtgry + ' ' +entry['category'] + ' ' + entry['id'] + '\n')
+    else:
+      initialCtgry = generateFiles(entry['id'], testFiles['false'], entry['category'])
+      f_falseTruth.write(initialCtgry + ' ' +entry['category'] + ' ' + entry['id'] + '\n')
+  f_trueTruth.close()
+  f_falseTruth.close()
   """
-  for key, value in testFileNames.iteritems():
+  for key, value in testFileNames['true'].iteritems():
+    print 'true', key
     predict(modelFileNames[key], value)
-  for key, value in testFiles.iteritems():
+  for key, value in testFileNames['false'].iteritems():
+    print 'false', key
+    predict(modelFileNames[key], value)
+  for key, value in testFiles['true'].iteritems():
     value.close()
-    
-  """
+  for key, value in testFiles['false'].iteritems():
+    value.close()
+  """  
   programPath = '.'
   if len(sys.argv) != 2:
     print 'error: Need one directory'

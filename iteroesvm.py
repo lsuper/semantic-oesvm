@@ -245,7 +245,7 @@ def checkStability(db, category, isSynset):
 #use this function every time you classify a new category or you change any formula
 def initialize():
   global category
-  consInitTrainSetAndTestSet(category, 0.1, dbRepo)
+  consInitTrainSetAndTestSet(category, 0.2, dbRepo)
   freqByService(dbTrain)
   freqByCategory(dbTrain.frequency, dbTrain.freqbyCtgry)
   kfirf(category, 0.4, True, dbTrain)
@@ -258,7 +258,7 @@ def initialize():
   kfidfdf(0.5, category, 100, False)
 
 category = 'Travel'
-#initialize()
+initialize()
 generateFilesforSvm('Travel', 'oesvm', False, dboesvm)
 generateFilesforSvm('Travel', 'svm', False, dboesvm)
 generateFilesforSvm('Travel', 'soesvm', True, dbsoesvm)
