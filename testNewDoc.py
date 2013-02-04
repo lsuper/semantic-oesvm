@@ -62,17 +62,20 @@ def synsetFrequency(freqEntry):
 #This method calculates the kfidfdf for the new document words. You should see that the document frequency actuall includes this new document.
 def kfidfdf(beta, category, omega, freqEntry, isSynset):
   if isSynset:
+    freqTable = dbTrain.synsetFrequency
     dbMethod = dbsoesvm
+    rankList = dbTrain.synsetKfirf.find({'category': category})[0]['wordlist']
   else:
+    freqTable = dbTrain.frequency
     dbMethod = dboesvm
+    rankList = dbTrain.wordKfirf.find({'category': category})[0]['wordlist']
   totalFreq = 0
-  documentTotalNumber = dbTrain.synsetFrequency.count() 
+  documentTotalNumber = freqTable.count()
   for word in freqEntry['wordlist']:
     #sum all keywords in one api frequency
     totalFreq += freqEntry['wordlist'][word]
   kfidfdfEntry = {'vector':{}}
   tfidfEntry = {'vector':{}}
-  rankList = dbTrain.synsetKfirf.find({'category': category})[0]['wordlist']
   rankList = Counter(rankList)
   if omega < len(rankList):
     omega = len(rankList) - 1
