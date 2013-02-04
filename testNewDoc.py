@@ -146,7 +146,7 @@ if __name__ == '__main__':
   modelFileNames['synsetsvm'] = './model/master/modelforsynsetsvm'
   modelFileNames['oesvm'] = './model/master/modelforoesvm'
   modelFileNames['svm'] = './model/master/modelforsvm'
-  """
+  """  
   f_trueTruth = open('./test/testTruth_true', 'w')
   f_falseTruth = open('./test/testTruth_false', 'w')
   freqByService(dbTest)
@@ -163,7 +163,7 @@ if __name__ == '__main__':
       f_falseTruth.write(initialCtgry + ' ' +entry['category'] + ' ' + entry['id'] + '\n')
   f_trueTruth.close()
   f_falseTruth.close()
-  """
+  """  
   for key, value in testFileNames['true'].iteritems():
     print 'true', key
     predict(modelFileNames[key], value)

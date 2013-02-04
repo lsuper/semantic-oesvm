@@ -29,15 +29,25 @@ signature = hashlib.md5(str(datetime.now())).hexdigest()
 #todo: if you want to compare between oesvm soesvm, init training set should be same. so another method should be written for copy api from soesvm initTrain table to oesvm initTrain table
 #set up init Training set and copy the whole repository frequency table for testing
 def consInitTrainSetAndTestSet(category, testPercent, db):
-  trainSet = list(db.apis.find())
+  ctgryApis = list(db.apis.find({'category':'Travel'}))
+  nonCtgryApis = list(db.apis.find({'category':{'$ne':'Travel'}}))
   dbTrain.apis.drop()
   dbTest.apis.drop()
-  testSetSize = int(len(trainSet) * testPercent)
+  halfTrainSetSize = 100
+  for i in range(halfTrainSetSize):
+    index = np.random.randint(0, len(ctgryApis), 1)
+    dbTrain.apis.insert(ctgryApis[index])
+    del ctgryApis[index]
+  for i in range(halfTrainSetSize):
+    index = np.random.randint(0, len(nonCtgryApis), 1)
+    dbTrain.apis.insert(nonCtgryApis[index])
+    del nonCtgryApis[index]
+  allApis = nonCtgryApis + ctgryApis
+  testSetSize = 100
   for i in range(testSetSize):
-    index = np.random.randint(0, len(trainSet), 1)
-    dbTest.apis.insert(trainSet[index])
-    del trainSet[index]
-  dbTrain.apis.insert(trainSet)
+    index = np.random.randint(0, len(allApis), 1)
+    dbTest.apis.insert(allApis[index])
+    del allApis[index]
 
 #this method cacultes kfirf for all categories, store as wordKfirf table for word, as synsetKfrif for synset (isSynset and !isWord)
 # all tables used are in db
