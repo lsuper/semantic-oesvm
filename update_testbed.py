@@ -34,4 +34,3 @@ def update():
 #  db.previous.insert({"filename" : "PW_2012_09_20_17_41_01"})
   print "compare done"
   """
-update()
