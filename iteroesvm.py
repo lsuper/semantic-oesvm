@@ -16,11 +16,11 @@ from cutrow import cutrow
 
 
 dbRepo = db_connection['PW_test']
-dboesvm = db_connection['oesvm']
-dbsoesvm = db_connection['soesvm']
+dboesvm = db_connection['oesvm_h']
+dbsoesvm = db_connection['soesvm_h']
 
-dbTrain = db_connection['trainSet']
-dbTest = db_connection['testSet']
+dbTrain = db_connection['trainSet_h']
+dbTest = db_connection['testSet_h']
 
 loop = 0
 isStop = False
