@@ -24,13 +24,13 @@ def update():
   db = setting.db_connection["utilities"]
   db.dump.insert({"filename" : "PW_" + timestamp})
   print "update all done!"
- """ 
+  """ 
   previous = db.previous.find()[0]["filename"]
   print previous
   compare("PW_" + timestamp, previous)
- # compare("PW_2012_09_20_17_41_01", previous)
+  #compare("PW_2012_09_20_17_41_01", previous)
   db.previous.remove({"filename" : previous})
   db.previous.insert({"filename" : "PW_" + timestamp})
-#  db.previous.insert({"filename" : "PW_2012_09_20_17_41_01"})
+  #  db.previous.insert({"filename" : "PW_2012_09_20_17_41_01"})
   print "compare done"
-"""
+  """

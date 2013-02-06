@@ -53,7 +53,11 @@ def getSynset(word, category):
     synset = dbTrain.wordSynsetMap.find({'category':category, 'word': word})[0]['synset'].replace('.','__')
   else:
     cnt = Counter({synset: sum(dbTrain.wordKfirf.find({'category':category})[0]['wordlist'].get(lemma.name, 0) for lemma in synset.lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(category, category))})
-    synset = cnt.most_common()[0][0].name
+    print cnt
+    if len(cnt) > 0:
+      synset = cnt.most_common()[0][0].name
+    else:
+      synset = None
   return synset
 
 #this method generate synsetFrequency Entry for testing doc and wordToSynsetMap
