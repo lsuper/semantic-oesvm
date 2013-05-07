@@ -15,17 +15,19 @@ from subprocess import *
 from cutrow import cutrow
 
 
-dbRepo = db_connection['PW_test']
-dboesvm = db_connection['oesvm_h']
-dbsoesvm = db_connection['soesvm_h']
+#h means it is for hierachical clustering, a paper wanted to be finished by Jia. It is joint work of Song and Divvy.
+if __name__ == "__main__":
+  dbRepo = db_connection['PW_test']
+  dboesvm = db_connection['oesvm_h']
+  dbsoesvm = db_connection['soesvm_h']
 
-dbTrain = db_connection['trainSet_h']
-dbTest = db_connection['testSet_h']
+  dbTrain = db_connection['trainSet_h']
+  dbTest = db_connection['testSet_h']
 
-loop = 0
-isStop = False
-rankList = []
-signature = hashlib.md5(str(datetime.now())).hexdigest()
+  loop = 0
+  isStop = False
+  rankList = []
+  signature = hashlib.md5(str(datetime.now())).hexdigest()
 #todo: if you want to compare between oesvm soesvm, init training set should be same. so another method should be written for copy api from soesvm initTrain table to oesvm initTrain table
 #set up init Training set and copy the whole repository frequency table for testing
 def consInitTrainSetAndTestSet(category, testPercent, db):
@@ -35,7 +37,7 @@ def consInitTrainSetAndTestSet(category, testPercent, db):
 
 #this method cacultes kfirf for all categories, store as wordKfirf table for word, as synsetKfrif for synset (isSynset and !isWord)
 # all tables used are in db
-def kfirf(category, alpha, isWord, db):
+def kfirf(alpha, isWord, db):
   if isWord:
     freqbyCtgryTable = db.freqbyCtgry
     db.wordKfirf.drop()
@@ -59,6 +61,7 @@ def kfirf(category, alpha, isWord, db):
       #print word, kfirfEntry['wordlist'][word]  
     if isWord: 
       db.wordKfirf.insert(kfirfEntry)
+      print kfirfEntry
     else:
       db.synsetKfirf.insert(kfirfEntry)
       
@@ -242,80 +245,82 @@ def initialize():
   consInitTrainSetAndTestSet(category, 0.2, dbRepo)
   freqByService(dbTrain)
   freqByCategory(dbTrain.frequency, dbTrain.freqbyCtgry)
-  kfirf(category, 0.4, True, dbTrain)
+  kfirf(0.4, True, dbTrain)
   wordToSynset(dbTrain)
   frequencySynset(dbTrain)
   freqByCategory(dbTrain.synsetFrequency, dbTrain.synsetFreqbyCtgry)
-  kfirf(category, 0.4, False, dbTrain)
-  #kfidfdf is only for category's api
-  kfidfdf(0.5, category, 100, True)
-  kfidfdf(0.5, category, 100, False)
+  kfirf(0.4, False, dbTrain)
+  for category in dbTrain.freqbyCtgry.distinct('category'):
+  #kfidfdf is only for category's apis
+    kfidfdf(0.5, category, 100, True)
+    kfidfdf(0.5, category, 100, False)
 
-category = 'Travel'
-initialize()
-generateFilesforSvm('Travel', 'oesvm', False, dboesvm)
-generateFilesforSvm('Travel', 'svm', False, dboesvm)
-generateFilesforSvm('Travel', 'soesvm', True, dbsoesvm)
-generateFilesforSvm('Travel', 'svm', True, dbsoesvm)
-cutrow()
-svmHelper('./dataset/master/word/oesvmtrain', './dataset/master/word/oesvmtrain', './model/master/modelforoesvm', 'predict_test_result')
-svmHelper('./dataset/master/word/svmtrain', './dataset/master/word/svmtrain', './model/master/modelforsvm', 'predict_test_result')
-svmHelper('./dataset/master/synset/svmtrain', './dataset/master/synset/svmtrain', './model/master/modelforsynsetsvm', 'predict_test_result')
-svmHelper('./dataset/master/synset/soesvmtrain', './dataset/master/synset/soesvmtrain', './model/master/modelforsoesvm', 'predict_test_result')
-
-"""
-#Loop
-isSynset = True
-category = 'Travel'
-isInit = True
-if isInit:
+if __name__ == "__main__":
+  category = 'Travel'
   initialize()
-if isSynset:
-  db = dbsoesvm
-  svmType = 'synset'
-else:
-  db = dboesvm
-  svmType = 'word'
-checkStability(db, category, isSynset)
-while not isStop:
-  if loop > 0:
-    kfidfdf(0.5, category, 100, True, db)
-  generateFilesforSvm(category, 'oesvm', isSynset, db)
+  generateFilesforSvm('Travel', 'oesvm', False, dboesvm)
+  generateFilesforSvm('Travel', 'svm', False, dboesvm)
+  generateFilesforSvm('Travel', 'soesvm', True, dbsoesvm)
+  generateFilesforSvm('Travel', 'svm', True, dbsoesvm)
   cutrow()
-  svmHelper('./dataset/iteration/'+ svmType +'/oesvmtrain', './dataset/iteration/' + svmType + '/oesvmtest', './model/iteration/modelforsoesvm', 'predict_test_result')
-  f_test = open('./rawdataset/iteration/'+ svmType + '/oesvmtest')
-  f_result = open('./predict_test_result')
-  #a dict for map lineNum to service <'lineNum':'api_id'>
-  lineNumToService = {}
-  lineNum = 0
-  for line in f_test:
-    ID = line.split(' ')[0]
-    lineNumToService[lineNum] = ID
-    lineNum += 1
-  lineNum = 0
-  for line in f_result:
-    if db.frequency.find({'api_id':lineNumToService[lineNum]}, {'category':1})[0]['category'] == category:
-      originCategory = 1
-    else:
-      originCategory = 0
-    if originCategory == 1 and line.rstrip('\n') == '0':
-      #remove original travel now non-travel service, because we cannot assign a category for it
-      db.frequency.remove({'api_id':lineNumToService[lineNum]})
-      db.synsetFrequency.remove({'api_id':lineNumToService[lineNum]})
-      print 'remove', lineNumToService[lineNum]
-    if originCategory == 0 and line.rstrip('\n') == '1':
-      db.frequency.update({'api_id':lineNumToService[lineNum]}, {'$set':{'category': category}})
-      db.synsetFrequency.update({'api_id':lineNumToService[lineNum]}, {'$set':{'category': category}})
-      print 'update', lineNumToService[lineNum]
-    lineNum += 1
-  #re-build all the table
-  freqByCategory(db.frequency, db.freqbyCtgry)
-  kfirf(category, 0.4, isSynset, True, db)
-  wordToSynset(db)
-  frequencySynset(db)
-  freqByCategory(db.synsetFrequency, db.synsetFreqbyCtgry)
-  kfirf(category, 0.4, isSynset, False, db)
-  loop += 1
-  print loop
+  svmHelper('./dataset/master/word/oesvmtrain', './dataset/master/word/oesvmtrain', './model/master/modelforoesvm', 'predict_test_result')
+  svmHelper('./dataset/master/word/svmtrain', './dataset/master/word/svmtrain', './model/master/modelforsvm', 'predict_test_result')
+  svmHelper('./dataset/master/synset/svmtrain', './dataset/master/synset/svmtrain', './model/master/modelforsynsetsvm', 'predict_test_result')
+  svmHelper('./dataset/master/synset/soesvmtrain', './dataset/master/synset/soesvmtrain', './model/master/modelforsoesvm', 'predict_test_result')
+
+  """
+  #Loop
+  isSynset = True
+  category = 'Travel'
+  isInit = True
+  if isInit:
+    initialize()
+  if isSynset:
+    db = dbsoesvm
+    svmType = 'synset'
+  else:
+    db = dboesvm
+    svmType = 'word'
   checkStability(db, category, isSynset)
-"""
+  while not isStop:
+    if loop > 0:
+      kfidfdf(0.5, category, 100, True, db)
+    generateFilesforSvm(category, 'oesvm', isSynset, db)
+    cutrow()
+    svmHelper('./dataset/iteration/'+ svmType +'/oesvmtrain', './dataset/iteration/' + svmType + '/oesvmtest', './model/iteration/modelforsoesvm', 'predict_test_result')
+    f_test = open('./rawdataset/iteration/'+ svmType + '/oesvmtest')
+    f_result = open('./predict_test_result')
+    #a dict for map lineNum to service <'lineNum':'api_id'>
+    lineNumToService = {}
+    lineNum = 0
+    for line in f_test:
+      ID = line.split(' ')[0]
+      lineNumToService[lineNum] = ID
+      lineNum += 1
+    lineNum = 0
+    for line in f_result:
+      if db.frequency.find({'api_id':lineNumToService[lineNum]}, {'category':1})[0]['category'] == category:
+        originCategory = 1
+      else:
+        originCategory = 0
+      if originCategory == 1 and line.rstrip('\n') == '0':
+        #remove original travel now non-travel service, because we cannot assign a category for it
+        db.frequency.remove({'api_id':lineNumToService[lineNum]})
+        db.synsetFrequency.remove({'api_id':lineNumToService[lineNum]})
+        print 'remove', lineNumToService[lineNum]
+      if originCategory == 0 and line.rstrip('\n') == '1':
+        db.frequency.update({'api_id':lineNumToService[lineNum]}, {'$set':{'category': category}})
+        db.synsetFrequency.update({'api_id':lineNumToService[lineNum]}, {'$set':{'category': category}})
+        print 'update', lineNumToService[lineNum]
+      lineNum += 1
+    #re-build all the table
+    freqByCategory(db.frequency, db.freqbyCtgry)
+    kfirf(category, 0.4, isSynset, True, db)
+    wordToSynset(db)
+    frequencySynset(db)
+    freqByCategory(db.synsetFrequency, db.synsetFreqbyCtgry)
+    kfirf(category, 0.4, isSynset, False, db)
+    loop += 1
+    print loop
+    checkStability(db, category, isSynset)
+  """

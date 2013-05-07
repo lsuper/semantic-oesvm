@@ -83,7 +83,7 @@ def freqByService(db):
 #this method chooses in order of the summation of word kfirf in each synset
 def wordToSynset(db):
   db.wordSynsetMap.drop()
-  db.wordSynsetMap.remove({'category':'Travel'})
+  #db.wordSynsetMap.remove({'category':'Travel'})
   query = {}
   for entry in db.freqbyCtgry.find(query):
     synsetWordMap = {}

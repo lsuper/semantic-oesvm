@@ -6,7 +6,7 @@ import re
 import sys
 from subprocess import *
 import math
-from hierachy_tree import chooseSimKSynsets
+from hierachy_tree import chooseSimKSynsets, similarity
 from nltk.corpus import wordnet as wn
 import os
 
@@ -47,10 +47,17 @@ def initialCategory(cnt):
       ctgry = entry['category']
   return ctgry
 
+def getTopCategories(dCnt, kfirfTable):
+  ctgryList = []
+  kfirfSumDict = {entry['category']: sum([dCnt[word] * entry['wordlist'].get(word, 0) for word in dCnt]) for entry in kfirfTable.find()}
+  del kfirfSumDict['Other']
+  kfirfCnt = Counter({key: value for key, value in kfirfSumDict.iteritems() if value > 0})
+  rankList = [pair[0] for pair in kfirfCnt.most_common()]
+  return rankList, kfirfCnt
 
 def getSynset(word, category):
   if dbTrain.wordSynsetMap.find({'category':category, 'word': word}).count():
-    synset = dbTrain.wordSynsetMap.find({'category':category, 'word': word})[0]['synset'].replace('.','__')
+    synset = dbTrain.wordSynsetMap.find({'category':category, 'word': word})[0]['synset']
   else:
     cnt = Counter({synset: sum(dbTrain.wordKfirf.find({'category':category})[0]['wordlist'].get(lemma.name, 0) for lemma in synset.lemmas) for synset in chooseSimKSynsets(word, 3, category = ctgryName.get(category, category))})
     print cnt
@@ -146,6 +153,8 @@ def getCategory(content):
   return category
   
 
+def getSimilarity(synsetName1, synsetName2):
+  return similarity(wn.synset(synsetName1), wn.synset(synsetName2))
 #the following is main part
 if __name__ == '__main__':
   programPath = '.'

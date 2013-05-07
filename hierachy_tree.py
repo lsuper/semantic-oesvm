@@ -85,7 +85,7 @@ def calDistanceMatrix(wordlist, treeList):
 def similarity(synset1, synset2):
   sim = synset1.wup_similarity(synset2) 
   if sim is None:
-    return 0
+    return 0.0
   else:
     return sim
 

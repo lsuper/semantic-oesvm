@@ -5,7 +5,8 @@ from datetime import datetime
 import setting
 
 # use constant
-timestamp = datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
+#timestamp = datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
+timestamp = "2013_04_30_19_20_25"
 db = setting.db_connection["PW_" + timestamp]
 
 #This method is used to get entries for both APIs and Mashups from Programmableweb
@@ -118,7 +119,7 @@ def delete_duplicates():
       log.write("Warming:the duplicated mashup returned " + str(len(entries)) + " from API response:\n")
       log.write(entries)
     deleted_entry = {}
-    for entry in db.mashups.find(entries[0]['id']):
+    for entry in db.mashups.find({'id' :entries[0]['id']},{'_id':0}):
       if entry != entries[0]:      
         deleted_entry = entry
         db.mashups.remove(entry, True)
